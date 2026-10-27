@@ -1,0 +1,28 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brand: #b3121b;
+  --color-brand-dark: #7d0c12;
+  --color-ink: #141111;
+  --color-gold: #e8b33a;
+  --color-gold-light: #f6dd9b;
+  --color-cream: #fbf6ee;
+  --font-display: "Arial Black", "Helvetica Neue", Impact, sans-serif;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  background: var(--color-cream);
+  color: var(--color-ink);
+}
+
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
