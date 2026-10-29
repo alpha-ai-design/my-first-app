@@ -2,7 +2,7 @@
 
 A mobile-first menu and ordering site for **Xu Noodles** (Indo-Chinese), built with Next.js (App Router), TypeScript and Tailwind CSS.
 
-Customers can browse the menu, filter veg-only, search dishes, pick Half/Full portions, build a cart (saved in the browser), add cooking instructions and place a Dine-in or Takeaway order. There is no login, payment or backend yet. An order shows a confirmation screen with an order number.
+Customers can browse the menu, filter veg-only, search dishes, pick Half/Full portions, build a cart (saved in the browser) and place a Dine-in or Takeaway order, then watch its status. Menu and orders are stored in Supabase. There is no login or online payment.
 
 ## Run it locally
 
@@ -18,56 +18,19 @@ The menu page loads dishes from the Supabase `menu_items` table.
 
 1. Copy `.env.example` to `.env.local` and fill in `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (Supabase → Project Settings → API). Set the same two variables on your host when deploying.
 2. Run [`supabase/seed.sql`](supabase/seed.sql) once in the Supabase SQL editor to add the `emoji` column and load the current menu.
+3. Run [`supabase/orders.sql`](supabase/orders.sql) in the SQL editor. It adds `place_order` (checks every dish, price and quantity on the server and saves the order) and `get_order_status` (used by the `/order/[id]` page).
 
 `category` must be one of the category ids below (e.g. `soups`). Dishes with both `price_half` and `price_full` get a Half/Full choice. Set `sold_out_until` to a future time to show a dish as sold out until then.
 
-> The cart and checkout still read prices from `data/menu.ts` for now.
+Orders are saved to `orders` / `order_items` with status `pending`. Changing an order's `status` to `accepted` (with `prep_minutes` and `accepted_at`) or `rejected` (with `reject_reason`) updates the customer's status page within 5 seconds.
 
 ## Editing the menu (data/menu.ts)
 
-The category list and order, card colours and GST live in [`data/menu.ts`](data/menu.ts). The dish list in that file is still used by the cart and checkout.
+The category list and order, card colours and GST rate live in [`data/menu.ts`](data/menu.ts). If you change `GST_RATE`, change the `0.05` in `supabase/orders.sql` too. The dish list in that file is only used for the original seed and card colours.
 
-### Change a price
+### Change, add or remove dishes
 
-Find the dish and change `price`:
-
-```ts
-{
-  id: "veg-manchow-soup",
-  name: "Veg Manchow Soup",
-  price: 129,          // ← whole rupees, before GST
-  ...
-}
-```
-
-For dishes with Half/Full portions, change the numbers in `portions` instead (and keep `price` equal to the Half price, since it's used as a fallback):
-
-```ts
-price: 139,
-portions: halfFull(139, 199),   // Half ₹139, Full ₹199
-```
-
-### Add a dish
-
-Copy an existing item inside the `menu` list, paste it below, and edit the fields:
-
-| Field         | What it does                                                                |
-| ------------- | --------------------------------------------------------------------------- |
-| `id`          | Unique, lowercase, no spaces (e.g. `"paneer-chilli-garlic"`). Don't reuse one. |
-| `name`        | Dish name shown on the menu                                                 |
-| `description` | One short line                                                               |
-| `category`    | One of the category `id`s (see below)                                       |
-| `price`       | Price in ₹                                                                  |
-| `veg`         | `true` = green veg mark, `false` = non-veg mark                             |
-| `spice`       | `0` none, `1` mild, `2` medium, `3` hot (shown as 🌶️)                        |
-| `bestseller`  | Optional. `true` shows the ★ Bestseller badge                               |
-| `portions`    | Optional. `halfFull(half, full)` makes customers choose Half or Full        |
-| `emoji`       | The food emoji on the card's picture                                        |
-| `color`       | Card picture background, as Tailwind gradient colours, e.g. `"from-red-600 to-red-900"` |
-
-### Remove a dish
-
-Delete its whole `{ ... },` block. Customers who had it in their cart will simply have it dropped.
+Edit the `menu_items` table in the Supabase table editor. Prices are whole rupees before GST. The menu updates on the next page load.
 
 ### Add, rename or reorder categories
 
@@ -77,7 +40,7 @@ To add a new category:
 
 1. Add its id to the `CategoryId` type, e.g. `| "chopsuey"`.
 2. Add `{ id: "chopsuey", name: "Chopsuey", emoji: "🥢" }` to `categories`.
-3. Set `category: "chopsuey"` on the dishes that belong to it.
+3. Set `category` to `chopsuey` on those dishes in `menu_items`.
 
 Empty categories are hidden automatically.
 
@@ -89,9 +52,13 @@ The tax rate is `GST_RATE` at the bottom of `data/menu.ts` (currently 5%).
 
 ```
 app/page.tsx            Menu page (tabs, search, veg filter)
-app/cart/page.tsx       Cart, cooking instructions, bill summary
-app/checkout/page.tsx   Checkout form and order confirmation
+app/cart/page.tsx       Cart and bill summary
+app/checkout/page.tsx   Checkout form (places the order)
+app/order/[id]/page.tsx Order status page
 components/             Header, logo, item card, portion picker, cart bar
 lib/cart.tsx            Cart state (saved to localStorage)
+lib/menu.tsx            Loads the menu from Supabase
+lib/orders.ts           place_order / get_order_status calls
+supabase/               seed.sql and orders.sql
 data/menu.ts            ← the menu
 ```

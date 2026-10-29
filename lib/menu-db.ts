@@ -27,13 +27,13 @@ function toCategoryId(value: string): CategoryId | undefined {
 function toMenuItem(row: MenuItemRow, now: number): MenuItem | null {
   const category = toCategoryId(row.category ?? "");
   if (!category) return null;
-  // The cart still looks dishes up in data/menu.ts, so reuse that id (and card colour) when the name matches.
+  // Reuse the card colour (and emoji fallback) from data/menu.ts when the name matches.
   const known = staticMenu.find((m) => m.name.toLowerCase() === row.name.toLowerCase());
   const half = row.price_half;
   const full = row.price_full;
   const hasPortions = half != null && full != null;
   return {
-    id: known?.id ?? String(row.id),
+    id: String(row.id),
     name: row.name,
     description: row.description ?? "",
     category,
@@ -55,8 +55,8 @@ function toMenuItem(row: MenuItemRow, now: number): MenuItem | null {
 
 // Within a category, keep the original menu order; new dishes go last, by name.
 function menuOrder(a: MenuItem, b: MenuItem) {
-  const ia = staticMenu.findIndex((m) => m.id === a.id);
-  const ib = staticMenu.findIndex((m) => m.id === b.id);
+  const ia = staticMenu.findIndex((m) => m.name.toLowerCase() === a.name.toLowerCase());
+  const ib = staticMenu.findIndex((m) => m.name.toLowerCase() === b.name.toLowerCase());
   if (ia !== ib) return (ia === -1 ? Infinity : ia) - (ib === -1 ? Infinity : ib);
   return a.name.localeCompare(b.name);
 }

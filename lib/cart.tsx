@@ -1,19 +1,19 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { GST_RATE, menu, type MenuItem } from "@/data/menu";
+import { GST_RATE, type MenuItem } from "@/data/menu";
+import { useMenu } from "@/lib/menu";
 
 export type CartLine = {
   key: string; // itemId + portion, so Half and Full are separate lines
-  itemId: string;
+  itemId: string; // menu_items.id
   portion?: string;
   qty: number;
 };
 
 type CartContextValue = {
   lines: CartLine[];
-  note: string;
-  setNote: (note: string) => void;
+  getItem: (id: string) => MenuItem | undefined;
   add: (itemId: string, portion?: string) => void;
   decrement: (key: string) => void;
   remove: (key: string) => void;
@@ -22,19 +22,16 @@ type CartContextValue = {
   itemTotal: number;
   gst: number;
   grandTotal: number;
-  hydrated: boolean;
+  hydrated: boolean; // saved cart and menu are both loaded
 };
 
-const STORAGE_KEY = "xu-noodles-cart-v1";
+// v2: item ids are now Supabase menu_items ids.
+const STORAGE_KEY = "xu-noodles-cart-v2";
 
 const CartContext = createContext<CartContextValue | null>(null);
 
 export const lineKey = (itemId: string, portion?: string) =>
   portion ? `${itemId}__${portion}` : itemId;
-
-export function getItem(id: string): MenuItem | undefined {
-  return menu.find((m) => m.id === id);
-}
 
 export function unitPrice(item: MenuItem, portion?: string): number {
   if (portion && item.portions) {
@@ -49,40 +46,49 @@ export function formatINR(amount: number): string {
 }
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
+  const { menu, error: menuError, getItem } = useMenu();
   const [lines, setLines] = useState<CartLine[]>([]);
-  const [note, setNote] = useState("");
-  const [hydrated, setHydrated] = useState(false);
+  const [loaded, setLoaded] = useState(false);
 
   // Load the saved cart once on the client.
   useEffect(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
-        const saved = JSON.parse(raw) as { lines?: CartLine[]; note?: string };
-        // Drop anything that no longer exists on the menu.
-        setLines((saved.lines ?? []).filter((l) => getItem(l.itemId) && l.qty > 0));
-        setNote(saved.note ?? "");
+        const saved = JSON.parse(raw) as { lines?: CartLine[] };
+        setLines((saved.lines ?? []).filter((l) => l.qty > 0));
       }
     } catch {
       // Ignore broken or blocked storage.
     }
-    setHydrated(true);
+    setLoaded(true);
   }, []);
+
+  // Once the menu is in, drop anything that no longer exists on it.
+  useEffect(() => {
+    if (!menu || !loaded) return;
+    setLines((prev) => {
+      const kept = prev.filter((l) => getItem(l.itemId));
+      return kept.length === prev.length ? prev : kept;
+    });
+  }, [menu, loaded, getItem]);
+
+  const hydrated = loaded && (!!menu || menuError);
 
   useEffect(() => {
     if (!hydrated) return;
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ lines, note }));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ lines }));
     } catch {
       // Ignore storage errors (private mode, quota).
     }
-  }, [lines, note, hydrated]);
+  }, [lines, hydrated]);
 
   const add = useCallback((itemId: string, portion?: string) => {
     const key = lineKey(itemId, portion);
     setLines((prev) => {
       const existing = prev.find((l) => l.key === key);
-      if (existing) return prev.map((l) => (l.key === key ? { ...l, qty: l.qty + 1 } : l));
+      if (existing) return prev.map((l) => (l.key === key ? { ...l, qty: Math.min(20, l.qty + 1) } : l));
       return [...prev, { key, itemId, portion, qty: 1 }];
     });
   }, []);
@@ -97,10 +103,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     setLines((prev) => prev.filter((l) => l.key !== key));
   }, []);
 
-  const clear = useCallback(() => {
-    setLines([]);
-    setNote("");
-  }, []);
+  const clear = useCallback(() => setLines([]), []);
 
   const value = useMemo<CartContextValue>(() => {
     const count = lines.reduce((s, l) => s + l.qty, 0);
@@ -111,8 +114,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     const gst = Math.round(itemTotal * GST_RATE);
     return {
       lines,
-      note,
-      setNote,
+      getItem,
       add,
       decrement,
       remove,
@@ -123,7 +125,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       grandTotal: itemTotal + gst,
       hydrated,
     };
-  }, [lines, note, add, decrement, remove, clear, hydrated]);
+  }, [lines, getItem, add, decrement, remove, clear, hydrated]);
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 }

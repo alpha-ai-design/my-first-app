@@ -2,12 +2,12 @@
 
 import Link from "next/link";
 import { GST_RATE } from "@/data/menu";
-import { formatINR, getItem, unitPrice, useCart } from "@/lib/cart";
+import { formatINR, unitPrice, useCart } from "@/lib/cart";
 import { VegMark } from "@/components/Badges";
 import QtyControl from "@/components/QtyControl";
 
 export default function CartPage() {
-  const { lines, note, setNote, add, decrement, remove, count, itemTotal, gst, grandTotal, hydrated } = useCart();
+  const { lines, getItem, add, decrement, remove, count, itemTotal, gst, grandTotal, hydrated } = useCart();
 
   if (!hydrated) return <main className="min-h-[60dvh]" />;
 
@@ -47,6 +47,7 @@ export default function CartPage() {
                   {line.portion ? `${line.portion} · ` : ""}
                   {formatINR(price)}
                 </p>
+                {item.soldOut && <p className="text-sm font-semibold text-red-600">Sold out right now. Please remove it.</p>}
                 <button type="button" onClick={() => remove(line.key)} className="mt-1 text-xs font-semibold text-stone-500 underline hover:text-brand">
                   Remove
                 </button>
@@ -60,17 +61,6 @@ export default function CartPage() {
         })}
       </ul>
 
-      <label className="mt-4 block rounded-2xl bg-white p-4 shadow-sm ring-1 ring-stone-200/70">
-        <span className="text-sm font-semibold">Cooking instructions (optional)</span>
-        <textarea
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-          rows={2}
-          maxLength={200}
-          placeholder="e.g. less spicy, no onion, extra gravy"
-          className="mt-2 w-full resize-none rounded-lg border border-stone-300 p-2.5 text-base outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
-        />
-      </label>
 
       <section className="mt-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-stone-200/70">
         <h2 className="font-bold">Bill summary</h2>

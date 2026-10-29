@@ -3,28 +3,27 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { categories, type MenuItem } from "@/data/menu";
 import { useCart } from "@/lib/cart";
-import { fetchMenu } from "@/lib/menu-db";
+import { useMenu } from "@/lib/menu";
+import { getSavedOrders, type SavedOrder } from "@/lib/orders";
+import Link from "next/link";
 import MenuItemCard from "@/components/MenuItemCard";
 import PortionSheet from "@/components/PortionSheet";
 import CartBar from "@/components/CartBar";
 
 export default function MenuPage() {
   const { add } = useCart();
-  const [menu, setMenu] = useState<MenuItem[] | null>(null);
-  const [loadError, setLoadError] = useState(false);
+  const { menu, error: loadError } = useMenu();
   const [query, setQuery] = useState("");
   const [vegOnly, setVegOnly] = useState(false);
   const [active, setActive] = useState<string>(categories[0].id);
   const [portionItem, setPortionItem] = useState<MenuItem | null>(null);
   const tabsRef = useRef<HTMLDivElement>(null);
+  const [recentOrder, setRecentOrder] = useState<SavedOrder | undefined>();
 
+  // Offer a way back to the status page for an order placed in the last 12 hours.
   useEffect(() => {
-    fetchMenu()
-      .then(setMenu)
-      .catch((err) => {
-        console.error("Could not load menu", err);
-        setLoadError(true);
-      });
+    const last = getSavedOrders()[0];
+    if (last && Date.now() - new Date(last.placedAt).getTime() < 12 * 3600_000) setRecentOrder(last);
   }, []);
 
   const sections = useMemo(() => {
@@ -81,6 +80,14 @@ export default function MenuPage() {
           <p className="mt-2 max-w-md text-sm text-white/70 sm:text-base">
             Order straight from your phone — for your table or to take away.
           </p>
+          {recentOrder && (
+            <Link
+              href={`/order/${recentOrder.id}`}
+              className="mt-3 inline-block rounded-full bg-gold px-4 py-1.5 text-sm font-bold text-ink shadow hover:bg-gold/90"
+            >
+              Track your order →
+            </Link>
+          )}
         </div>
       </section>
 

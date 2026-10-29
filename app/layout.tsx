@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { CartProvider } from "@/lib/cart";
+import { MenuProvider } from "@/lib/menu";
 import Header from "@/components/Header";
 
 export const metadata: Metadata = {
@@ -18,10 +19,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body className="min-h-dvh antialiased">
-        <CartProvider>
-          <Header />
-          {children}
-        </CartProvider>
+        <MenuProvider>
+          <CartProvider>
+            <Header />
+            {children}
+          </CartProvider>
+        </MenuProvider>
       </body>
     </html>
   );
