@@ -26,3 +26,40 @@ body {
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
+
+/* Owner screen: an order waiting 3+ minutes flashes so it can't be missed. */
+@keyframes flash-urgent {
+  0%,
+  100% {
+    background-color: #ffffff;
+  }
+  50% {
+    background-color: #fecaca;
+  }
+}
+.flash-urgent {
+  animation: flash-urgent 1s steps(1, end) infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .flash-urgent {
+    animation: none;
+    background-color: #fee2e2;
+  }
+}
+
+/* Printed bill: only the receipt, black on white, small margins. */
+@media print {
+  @page {
+    margin: 4mm;
+  }
+  body {
+    background: #ffffff;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .receipt-page {
+    min-height: 0;
+    padding: 0;
+  }
+}

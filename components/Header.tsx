@@ -1,11 +1,14 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import Logo from "./Logo";
 import { useCart } from "@/lib/cart";
 
 export default function Header() {
   const { count, hydrated } = useCart();
+  // The kitchen screens under /admin have their own header.
+  if (usePathname().startsWith("/admin")) return null;
   return (
     <header className="sticky top-0 z-30 bg-ink border-b-2 border-gold/60">
       <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">

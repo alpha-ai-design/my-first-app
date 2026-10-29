@@ -20,6 +20,7 @@ The menu page loads dishes from the Supabase `menu_items` table.
 2. Run [`supabase/seed.sql`](supabase/seed.sql) once in the Supabase SQL editor to add the `emoji` column and load the current menu.
 3. Run [`supabase/updates.sql`](supabase/updates.sql) **once** in the SQL editor. It deletes all test orders, adds the `restaurant_settings` table, changes `orders` to delivery-only and adds the `place_order` and `get_order_status` functions. Don't run it again once real orders exist: it deletes all orders.
 4. Run [`supabase/02_free_text_society.sql`](supabase/02_free_text_society.sql). It only replaces `place_order` so customers can type any society name. It doesn't delete or change any data.
+5. Run [`supabase/03_owner_orders.sql`](supabase/03_owner_orders.sql). It turns on live updates for `orders`, lets signed-in staff read/update orders and mark dishes sold out (customers can still only read the menu), and adds a job that auto-rejects orders still pending after 8 minutes. It doesn't delete or change any data.
 
 `category` must be one of the category ids below (e.g. `soups`). Dishes with both `price_half` and `price_full` get a Half/Full choice. Set `sold_out_until` to a future time to show a dish as sold out until then.
 
@@ -30,6 +31,20 @@ Orders are saved to `orders` / `order_items` with status `pending`. The customer
 - `accepted` (set `prep_minutes` and `accepted_at`): shows "Arriving in about X minutes"
 - `rejected` (set `reject_reason`)
 - `cancelled`: only for an accepted order that failed, e.g. customer not home or refused to pay (set `reject_reason` and `cancelled_at`)
+
+## Owner screen (/admin)
+
+Open `/admin` on the kitchen phone and sign in. **Every signed-in user is treated as staff**, so:
+
+1. In Supabase → Authentication → Sign In / Providers, turn **off** "Allow new users to sign up".
+2. Create the owner's login in Authentication → Users → Add user (email + password). The password can be changed later in the app's Settings.
+
+Tap **Start shift** to turn on the chime and keep the screen awake. The Orders tab shows:
+
+- **New**: pending orders, oldest first. A chime plays every 10 seconds while any are waiting; after 3 minutes the card flashes and the chime gets louder. **Accept** uses `default_prep_minutes` from `restaurant_settings`, or tap 30 / 40 / 50 min. **Reject** asks for a reason; "Item sold out" also hides that dish until the next 6:00 am IST. Orders not answered in 8 minutes are rejected automatically ("Restaurant didn't respond").
+- **Accepted today**: with **Print bill** (receipt for 58/80 mm printers or A4) and **Cancel** (customer not available / refused / other).
+
+All times are Indian time (IST). Menu, Offers and Sales tabs are coming soon.
 
 ## Editing the menu (data/menu.ts)
 
@@ -62,12 +77,15 @@ app/page.tsx            Menu page (tabs, search, veg filter)
 app/cart/page.tsx       Cart and bill summary
 app/checkout/page.tsx   Delivery details and place order
 app/order/[id]/page.tsx Order status page
+app/admin/               Owner screen: login, orders, print bill, settings
+components/admin/       Admin shell (sign-in check, shift, chime, tabs)
+lib/admin/              Owner queries, IST time helpers, chime
 components/             Header, logo, item card, portion picker, cart bar
 lib/cart.tsx            Cart state (saved to localStorage)
 lib/menu.tsx            Loads the menu from Supabase
 lib/orders.ts           place_order / get_order_status calls
 lib/settings.ts         Delivery fee and minimum order
 lib/customer.ts         Name, phone and address remembered on the phone
-supabase/               seed.sql, updates.sql, 02_free_text_society.sql
+supabase/               seed.sql, updates.sql, 02_free_text_society.sql, 03_owner_orders.sql
 data/menu.ts            ← the menu
 ```
