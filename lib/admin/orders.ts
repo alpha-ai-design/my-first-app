@@ -102,3 +102,27 @@ export async function markSoldOutUntilMorning(menuItemId: string) {
   const { error } = await db().from("menu_items").update({ sold_out_until: next6amIST().toISOString() }).eq("id", menuItemId);
   if (error) throw error;
 }
+
+// "Flat 1204 · Tower B · Gaur City 2". Customers type these freely, so don't add a
+// label they already wrote ("Tower B", "Block C", "Flat 12") — avoids "Tower Tower B".
+function labelled(label: string, value: string | null, alreadyLabelled: RegExp): string | null {
+  const v = value?.trim();
+  if (!v) return null;
+  return alreadyLabelled.test(v) ? v : `${label} ${v}`;
+}
+
+export function formatAddress(order: Pick<AdminOrder, "flat_number" | "tower" | "society">): string {
+  return [
+    labelled("Flat", order.flat_number, /^flat\b/i),
+    labelled("Tower", order.tower, /\b(tower|block)\b/i),
+    order.society?.trim() || null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
+// Accepted time + prep time = when the order should reach the customer.
+export function dueAt(order: Pick<AdminOrder, "accepted_at" | "prep_minutes">): Date | null {
+  if (!order.accepted_at || order.prep_minutes == null) return null;
+  return new Date(new Date(order.accepted_at).getTime() + order.prep_minutes * 60_000);
+}

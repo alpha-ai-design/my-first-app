@@ -7,6 +7,8 @@ import { formatTimeIST, minutesSince } from "@/lib/admin/ist";
 import {
   acceptOrder,
   cancelOrder,
+  dueAt,
+  formatAddress,
   markSoldOutUntilMorning,
   rejectOrder,
   type AdminOrder,
@@ -92,12 +94,23 @@ function useSave() {
 function Address({ order }: { order: AdminOrder }) {
   return (
     <div className="text-lg leading-snug">
-      <p className="font-semibold">
-        Flat {order.flat_number}, {order.tower}
-      </p>
-      <p>{order.society}</p>
+      <p className="font-semibold">{formatAddress(order)}</p>
       {order.landmark && <p className="text-stone-600">Landmark: {order.landmark}</p>}
     </div>
+  );
+}
+
+function Customer({ order }: { order: AdminOrder }) {
+  return (
+    <>
+      <p className="text-xl font-bold">{order.customer_name}</p>
+      <a
+        href={`tel:+91${order.customer_phone}`}
+        className="inline-flex min-h-12 items-center gap-2 rounded-xl bg-stone-100 px-4 text-xl font-bold tracking-wide text-ink"
+      >
+        <span aria-hidden>📞</span> {order.customer_phone}
+      </a>
+    </>
   );
 }
 
@@ -142,13 +155,7 @@ function NewOrderCard({ order }: { order: AdminOrder }) {
       </p>
 
       <div className="mt-3 space-y-2 border-t border-stone-200 pt-3">
-        <p className="text-xl font-bold">{order.customer_name}</p>
-        <a
-          href={`tel:+91${order.customer_phone}`}
-          className="inline-flex min-h-12 items-center gap-2 rounded-xl bg-stone-100 px-4 text-xl font-bold tracking-wide text-ink"
-        >
-          <span aria-hidden>📞</span> {order.customer_phone}
-        </a>
+        <Customer order={order} />
         <Address order={order} />
       </div>
 
@@ -242,6 +249,7 @@ function NewOrderCard({ order }: { order: AdminOrder }) {
 function AcceptedOrderCard({ order }: { order: AdminOrder }) {
   const { busy, run } = useSave();
   const [cancelling, setCancelling] = useState(false);
+  const due = dueAt(order);
 
   return (
     <article className="rounded-2xl border-2 border-green-700 bg-white p-4 shadow-sm" aria-label={`Order ${order.order_number}`}>
@@ -249,21 +257,31 @@ function AcceptedOrderCard({ order }: { order: AdminOrder }) {
         <h3 className="text-2xl font-extrabold">Order #{order.order_number}</h3>
         <StatusLabel text="Accepted" tone="accepted" />
       </div>
-      <p className="mt-1 font-semibold text-stone-600">
-        Accepted {order.accepted_at ? formatTimeIST(order.accepted_at) : ""}
-        {order.prep_minutes ? ` · ${order.prep_minutes} min` : ""}
-      </p>
-      <div className="mt-2">
+      {due && <p className="mt-1 text-xl font-extrabold">Due by {formatTimeIST(due)}</p>}
+      {order.accepted_at && <p className="text-base text-stone-500">Accepted {formatTimeIST(order.accepted_at)}</p>}
+      <div className="mt-3 space-y-2 border-t border-stone-200 pt-3">
+        <Customer order={order} />
         <Address order={order} />
       </div>
       <p className="mt-2 text-xl font-extrabold">Collect {formatINR(Number(order.total))}</p>
 
       {!cancelling ? (
-        <div className="mt-3 grid grid-cols-2 gap-2">
-          <a href={`/admin/print/${order.id}`} target="_blank" rel="noopener" className={`${btn} flex items-center justify-center bg-ink text-white`}>
+        <div className="mt-3 flex flex-col items-center gap-1">
+          <a
+            href={`/admin/print/${order.id}`}
+            target="_blank"
+            rel="noopener"
+            className={`${btn} flex w-full items-center justify-center bg-ink text-white`}
+          >
             Print bill
           </a>
-          <button type="button" disabled={busy} onClick={() => setCancelling(true)} className={`${btn} border-2 border-red-700 bg-white text-red-700`}>
+          {/* Deliberately low-key so it isn't tapped by mistake; still a 48px-tall target. */}
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => setCancelling(true)}
+            className="min-h-12 px-4 text-base font-semibold text-red-700 underline underline-offset-4 disabled:opacity-50"
+          >
             Cancel
           </button>
         </div>

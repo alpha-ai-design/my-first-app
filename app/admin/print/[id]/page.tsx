@@ -3,7 +3,7 @@
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { formatDateTimeIST } from "@/lib/admin/ist";
-import { fetchOrder, type AdminOrder } from "@/lib/admin/orders";
+import { fetchOrder, formatAddress, type AdminOrder } from "@/lib/admin/orders";
 import { formatINR } from "@/lib/cart";
 
 // Print-friendly bill. Narrow column so it fits 58/80 mm receipt printers; prints fine on A4 too.
@@ -51,10 +51,7 @@ export default function PrintBillPage() {
         <hr className="my-2 border-dashed border-black" />
         <p className="font-bold">{order.customer_name}</p>
         <p>+91 {order.customer_phone}</p>
-        <p>
-          Flat {order.flat_number}, {order.tower}
-        </p>
-        <p>{order.society}</p>
+        <p>{formatAddress(order)}</p>
         {order.landmark && <p>Landmark: {order.landmark}</p>}
         <hr className="my-2 border-dashed border-black" />
         <ul className="space-y-1">
