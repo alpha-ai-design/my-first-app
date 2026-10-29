@@ -2,8 +2,8 @@
 -- Run ONCE in the Supabase SQL editor, after seed.sql. It replaces the old orders.sql functions.
 -- WARNING: step (a) deletes ALL orders. Do not run it again once real orders are coming in.
 --
--- BEFORE RUNNING: put your delivery pincodes on the line marked "EDIT THIS LINE" below,
--- e.g. '{560001,560034,560095}'. The script stops (and changes nothing) until you do.
+-- Delivery is only to residents of Gaur City 2 (Greater Noida West) and nearby societies
+-- listed in restaurant_settings.delivery_areas.
 --
 -- Everything runs in one transaction: if any step fails, nothing is changed.
 
@@ -18,23 +18,15 @@ delete from orders;
 
 create table if not exists restaurant_settings (
   id int primary key default 1 check (id = 1), -- only one row allowed
-  delivery_pincodes text[] not null default '{}',
+  delivery_areas text[] not null default '{}', -- societies we deliver to (checkout lists Gaur City 2 first)
   delivery_fee int not null default 0 check (delivery_fee >= 0),
   min_order int not null default 0 check (min_order >= 0),
   default_prep_minutes int not null default 40 check (default_prep_minutes > 0)
 );
 
-insert into restaurant_settings (id, delivery_pincodes)
-values (1, '{REPLACE_WITH_YOUR_PINCODES}') -- EDIT THIS LINE
-on conflict (id) do update set delivery_pincodes = excluded.delivery_pincodes;
-
-do $$
-begin
-  if exists (select 1 from restaurant_settings where 'REPLACE_WITH_YOUR_PINCODES' = any (delivery_pincodes)) then
-    raise exception 'Edit the delivery_pincodes line in updates.sql (e.g. ''{560001,560034}'') and run it again. Nothing was changed.';
-  end if;
-end;
-$$;
+insert into restaurant_settings (id, delivery_areas)
+values (1, '{"Gaur City 2"}')
+on conflict (id) do update set delivery_areas = excluded.delivery_areas;
 
 alter table restaurant_settings enable row level security;
 
@@ -92,10 +84,10 @@ alter table orders
   alter column customer_phone set not null;
 
 alter table orders
-  add column if not exists address_line text, -- house/flat and building
-  add column if not exists area text,         -- street/area
-  add column if not exists landmark text,
-  add column if not exists pincode text,
+  add column if not exists society text,
+  add column if not exists tower text,       -- tower / block
+  add column if not exists flat_number text,
+  add column if not exists landmark text,    -- gate / landmark (optional)
   add column if not exists notes text,
   add column if not exists gst int,
   add column if not exists delivery_fee int,
@@ -112,10 +104,10 @@ drop function if exists public.place_order(text, text, text, text, text, text, t
 create function public.place_order(
   p_customer_name text,
   p_customer_phone text,
-  p_address_line text,
-  p_area text,
+  p_society text,
+  p_tower text,
+  p_flat_number text,
   p_landmark text,
-  p_pincode text,
   p_notes text,
   p_items jsonb
 )
@@ -127,10 +119,10 @@ as $$
 declare
   v_name text := nullif(trim(coalesce(p_customer_name, '')), '');
   v_phone text := trim(coalesce(p_customer_phone, ''));
-  v_address text := nullif(trim(coalesce(p_address_line, '')), '');
-  v_area text := nullif(trim(coalesce(p_area, '')), '');
+  v_society text := nullif(trim(coalesce(p_society, '')), '');
+  v_tower text := nullif(trim(coalesce(p_tower, '')), '');
+  v_flat text := nullif(trim(coalesce(p_flat_number, '')), '');
   v_landmark text := nullif(trim(coalesce(p_landmark, '')), '');
-  v_pincode text := trim(coalesce(p_pincode, ''));
   v_notes text := nullif(trim(coalesce(p_notes, '')), '');
   v_settings restaurant_settings%rowtype;
   v_item jsonb;
@@ -157,17 +149,16 @@ begin
   if v_phone !~ '^[6-9][0-9]{9}$' then
     raise exception 'Please enter a valid 10-digit mobile number (starts with 6, 7, 8 or 9).';
   end if;
-  if v_address is null or v_area is null then
-    raise exception 'Please enter your house/flat, building and street/area.';
+  if v_society is null or v_tower is null or v_flat is null then
+    raise exception 'Please choose your society and enter your tower and flat number.';
   end if;
-  if char_length(v_address) > 200 or char_length(v_area) > 200 or char_length(coalesce(v_landmark, '')) > 200 then
-    raise exception 'Please shorten your address (200 characters max per line).';
+  -- Store the society exactly as written in delivery_areas.
+  select a into v_society from unnest(v_settings.delivery_areas) as a where lower(a) = lower(v_society) limit 1;
+  if v_society is null then
+    raise exception 'Sorry, we only deliver within Gaur City 2 and nearby societies.';
   end if;
-  if v_pincode !~ '^[0-9]{6}$' then
-    raise exception 'Please enter a valid 6-digit pincode.';
-  end if;
-  if not (v_pincode = any (v_settings.delivery_pincodes)) then
-    raise exception 'Sorry, we don''t deliver to this pincode yet.';
+  if char_length(v_tower) > 100 or char_length(v_flat) > 50 or char_length(coalesce(v_landmark, '')) > 200 then
+    raise exception 'Please shorten your address.';
   end if;
   if char_length(coalesce(v_notes, '')) > 200 then
     raise exception 'Cooking instructions can be at most 200 characters.';
@@ -234,11 +225,11 @@ begin
   v_gst := round(v_subtotal * 0.05)::int;
 
   insert into orders (
-    order_type, customer_name, customer_phone, address_line, area, landmark, pincode, notes,
+    order_type, customer_name, customer_phone, society, tower, flat_number, landmark, notes,
     status, subtotal, discount, gst, delivery_fee, total
   )
   values (
-    'delivery', v_name, v_phone, v_address, v_area, v_landmark, v_pincode, v_notes,
+    'delivery', v_name, v_phone, v_society, v_tower, v_flat, v_landmark, v_notes,
     'pending', v_subtotal, 0, v_gst, v_settings.delivery_fee, v_subtotal + v_gst + v_settings.delivery_fee
   )
   returning id into v_order_id;

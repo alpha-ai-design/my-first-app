@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { GST_RATE } from "@/data/menu";
 import { formatINR, unitPrice, useCart } from "@/lib/cart";
 import { emptyCustomer, getSavedCustomer, saveCustomer, type CustomerDetails } from "@/lib/customer";
@@ -11,9 +11,15 @@ import { useSettings } from "@/lib/settings";
 
 // Indian mobile numbers: 10 digits starting with 6, 7, 8 or 9.
 const MOBILE_RE = /^[6-9]\d{9}$/;
-const PINCODE_RE = /^\d{6}$/;
 const NOTES_MAX = 200;
-const NOT_SERVED = "Sorry, we don't deliver to this pincode yet";
+const HOME_SOCIETY = "Gaur City 2";
+const NOT_SERVED = "Sorry, we only deliver within Gaur City 2 and nearby societies.";
+
+// Societies for the dropdown, with Gaur City 2 first. Falls back to Gaur City 2 until settings load.
+function societyOptions(areas: string[] | undefined): string[] {
+  if (!areas?.length) return [HOME_SOCIETY];
+  return [...areas].sort((a, b) => Number(b === HOME_SOCIETY) - Number(a === HOME_SOCIETY));
+}
 
 type Errors = Partial<Record<keyof CustomerDetails, string>>;
 
@@ -34,20 +40,29 @@ export default function CheckoutPage() {
   useEffect(() => {
     const saved = getSavedCustomer();
     if (saved) {
-      setDetails(saved);
-      setEditing(false);
+      setDetails(saved.details);
+      setEditing(!saved.complete);
     }
   }, []);
 
-  const isServed = (pincode: string) => !settings || settings.delivery_pincodes.includes(pincode);
+  const societies = useMemo(() => societyOptions(settings?.delivery_areas), [settings]);
 
-  // A saved pincode we no longer deliver to: open the form and say so.
+  // With only one society there is nothing to choose, so pick it (but never swap in a
+  // different society for someone whose saved one we no longer serve).
   useEffect(() => {
-    if (settings && !editing && !settings.delivery_pincodes.includes(details.pincode)) {
-      setEditing(true);
-      setErrors((e) => ({ ...e, pincode: NOT_SERVED }));
+    if (settings && societies.length === 1 && !details.society && !errors.society) {
+      setDetails((d) => ({ ...d, society: societies[0] }));
     }
-  }, [settings, editing, details.pincode]);
+  }, [settings, societies, details.society, errors.society]);
+
+  // A saved society we no longer deliver to: open the form and say so.
+  useEffect(() => {
+    if (settings && !editing && !settings.delivery_areas.includes(details.society)) {
+      setEditing(true);
+      setDetails((d) => ({ ...d, society: "" }));
+      setErrors((e) => ({ ...e, society: NOT_SERVED }));
+    }
+  }, [settings, editing, details.society]);
 
   if (!cart.hydrated || placed) return <main className="min-h-[60dvh]" />;
 
@@ -72,21 +87,13 @@ export default function CheckoutPage() {
     setErrors((e) => ({ ...e, [field]: undefined }));
   };
 
-  const onPincode = (raw: string) => {
-    const pincode = raw.replace(/\D/g, "").slice(0, 6);
-    set("pincode", pincode);
-    // Tell them straight away if we don't deliver there.
-    if (PINCODE_RE.test(pincode) && !isServed(pincode)) setErrors((e) => ({ ...e, pincode: NOT_SERVED }));
-  };
-
   const validate = () => {
     const e: Errors = {};
     if (!details.name.trim()) e.name = "Please enter your name.";
     if (!MOBILE_RE.test(details.phone)) e.phone = "Enter a valid 10-digit mobile number (starts with 6–9).";
-    if (!details.addressLine.trim()) e.addressLine = "Please enter your house/flat and building.";
-    if (!details.area.trim()) e.area = "Please enter your street or area.";
-    if (!PINCODE_RE.test(details.pincode)) e.pincode = "Please enter your 6-digit pincode.";
-    else if (!isServed(details.pincode)) e.pincode = NOT_SERVED;
+    if (!details.society) e.society = "Please choose your society.";
+    if (!details.tower.trim()) e.tower = "Please enter your tower or block.";
+    if (!details.flatNumber.trim()) e.flatNumber = "Please enter your flat number.";
     setErrors(e);
     if (Object.keys(e).length > 0) setEditing(true);
     return Object.keys(e).length === 0;
@@ -106,10 +113,10 @@ export default function CheckoutPage() {
     const trimmed: CustomerDetails = {
       name: details.name.trim(),
       phone: details.phone,
-      addressLine: details.addressLine.trim(),
-      area: details.area.trim(),
+      society: details.society,
+      tower: details.tower.trim(),
+      flatNumber: details.flatNumber.trim(),
       landmark: details.landmark.trim(),
-      pincode: details.pincode,
     };
 
     try {
@@ -184,9 +191,9 @@ export default function CheckoutPage() {
                   {details.name} · +91 {details.phone}
                 </p>
                 <p className="text-stone-700">
-                  {details.addressLine}, {details.area} – {details.pincode}
+                  Flat {details.flatNumber}, {details.tower}, {details.society}
                 </p>
-                {details.landmark && <p className="text-stone-500">Landmark: {details.landmark}</p>}
+                {details.landmark && <p className="text-stone-500">Gate / landmark: {details.landmark}</p>}
               </div>
               <button type="button" onClick={() => setEditing(true)} className="shrink-0 text-sm font-bold text-brand underline">
                 Change
@@ -215,33 +222,53 @@ export default function CheckoutPage() {
                 {errors.phone && <span className="mt-1 block text-sm text-red-600">{errors.phone}</span>}
               </label>
 
-              {field("addressLine", "House/Flat & Building", { autoComplete: "address-line1", placeholder: "e.g. Flat 4B, Rose Apartments" })}
-              {field("area", "Street/Area", { autoComplete: "address-line2", placeholder: "e.g. 12th Main, Indiranagar" })}
-              {field(
-                "landmark",
-                <>
-                  Landmark <span className="font-normal text-stone-500">(helps us find you)</span>
-                </>,
-                { placeholder: "e.g. opposite the temple" },
-              )}
-
               <label className="block">
-                <span className="text-sm font-semibold">Pincode</span>
-                <input
-                  value={details.pincode}
-                  onChange={(e) => onPincode(e.target.value)}
-                  inputMode="numeric"
-                  autoComplete="postal-code"
-                  placeholder="6 digits"
-                  className={`${inputCls(errors.pincode)} tracking-wide`}
-                  aria-invalid={!!errors.pincode}
-                />
-                {errors.pincode && (
+                <span className="text-sm font-semibold">Society</span>
+                <div className="relative">
+                  <select
+                    value={details.society}
+                    onChange={(e) => set("society", e.target.value)}
+                    className={`${inputCls(errors.society)} appearance-none pr-9`}
+                    aria-invalid={!!errors.society}
+                  >
+                    {(!details.society || societies.length > 1) && (
+                      <option value="" disabled>
+                        Choose your society
+                      </option>
+                    )}
+                    {societies.map((name) => (
+                      <option key={name} value={name}>
+                        {name}
+                      </option>
+                    ))}
+                  </select>
+                  <svg
+                    viewBox="0 0 24 24"
+                    className="pointer-events-none absolute right-3 top-1/2 mt-0.5 h-4 w-4 -translate-y-1/2 text-stone-500"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={2.5}
+                    aria-hidden
+                  >
+                    <path d="m6 9 6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </div>
+                <span className="mt-1 block text-xs text-stone-500">We deliver within Gaur City 2 and nearby societies.</span>
+                {errors.society && (
                   <span role="status" className="mt-1 block text-sm font-semibold text-red-600">
-                    {errors.pincode}
+                    {errors.society}
                   </span>
                 )}
               </label>
+
+              {field("tower", "Tower / Block", { placeholder: "e.g. 14th Avenue, Tower B" })}
+              {field("flatNumber", "Flat number", { placeholder: "e.g. 1204" })}
+              {field(
+                "landmark",
+                <>
+                  Gate / landmark <span className="font-normal text-stone-500">(optional)</span>
+                </>,
+              )}
             </div>
           )}
         </section>

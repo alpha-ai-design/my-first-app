@@ -51,10 +51,10 @@ const GENERIC_ERROR = "We couldn't place your order right now. Please check your
 export async function placeOrder(input: {
   name: string;
   phone: string;
-  addressLine: string;
-  area: string;
+  society: string;
+  tower: string;
+  flatNumber: string;
   landmark: string;
-  pincode: string;
   notes: string;
   items: { menu_item_id: string; portion: string | null; quantity: number }[];
 }): Promise<string> {
@@ -62,10 +62,10 @@ export async function placeOrder(input: {
   const { data, error } = await supabase.rpc("place_order", {
     p_customer_name: input.name,
     p_customer_phone: input.phone,
-    p_address_line: input.addressLine,
-    p_area: input.area,
+    p_society: input.society,
+    p_tower: input.tower,
+    p_flat_number: input.flatNumber,
     p_landmark: input.landmark,
-    p_pincode: input.pincode,
     p_notes: input.notes,
     p_items: input.items,
   });
