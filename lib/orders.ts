@@ -1,25 +1,26 @@
 import { supabase } from "@/lib/supabase";
 
-export type OrderType = "dine_in" | "takeaway";
-
 export type OrderStatus = {
-  status: string;
+  order_number: number;
+  status: "pending" | "accepted" | "rejected" | "cancelled" | string;
   reject_reason: string | null;
   prep_minutes: number | null;
   accepted_at: string | null;
-  total: number | null;
+  subtotal: number;
+  gst: number;
+  delivery_fee: number;
+  total: number;
+  notes: string | null;
 };
 
-// What we keep on the phone so the status page works after a refresh or a later visit.
+// What we keep on the phone so the status page can list the dishes after a refresh or a later visit.
 export type SavedOrder = {
   id: string;
-  type: OrderType;
-  table?: string;
   items: { name: string; veg: boolean; portion?: string; qty: number; total: number }[];
   placedAt: string; // ISO
 };
 
-const STORAGE_KEY = "xu-noodles-orders-v1";
+const STORAGE_KEY = "xu-noodles-orders-v2";
 const KEEP = 10;
 
 export function getSavedOrders(): SavedOrder[] {
@@ -48,18 +49,24 @@ export function saveOrder(order: SavedOrder) {
 const GENERIC_ERROR = "We couldn't place your order right now. Please check your connection and try again.";
 
 export async function placeOrder(input: {
-  type: OrderType;
-  table: string;
   name: string;
   phone: string;
+  addressLine: string;
+  area: string;
+  landmark: string;
+  pincode: string;
+  notes: string;
   items: { menu_item_id: string; portion: string | null; quantity: number }[];
 }): Promise<string> {
   if (!supabase) throw new Error(GENERIC_ERROR);
   const { data, error } = await supabase.rpc("place_order", {
-    p_order_type: input.type,
-    p_table_number: input.table,
     p_customer_name: input.name,
     p_customer_phone: input.phone,
+    p_address_line: input.addressLine,
+    p_area: input.area,
+    p_landmark: input.landmark,
+    p_pincode: input.pincode,
+    p_notes: input.notes,
     p_items: input.items,
   });
   if (error) {

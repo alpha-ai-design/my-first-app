@@ -5,8 +5,8 @@ import { MenuProvider } from "@/lib/menu";
 import Header from "@/components/Header";
 
 export const metadata: Metadata = {
-  title: "Xu Noodles — Indo-Chinese Menu & Ordering",
-  description: "Browse the Xu Noodles menu and place your order for dine-in or takeaway.",
+  title: "Xu Noodles — Indo-Chinese Food Delivery",
+  description: "Order Indo-Chinese food from Xu Noodles, delivered hot to your door. Pay on delivery with cash or UPI.",
 };
 
 export const viewport: Viewport = {

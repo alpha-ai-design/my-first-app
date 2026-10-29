@@ -78,7 +78,7 @@ export default function MenuPage() {
             Chinese, the <span className="text-gold">Indian</span> way.
           </h1>
           <p className="mt-2 max-w-md text-sm text-white/70 sm:text-base">
-            Order straight from your phone — for your table or to take away.
+            Delivered hot to your door. Pay on delivery with cash or UPI.
           </p>
           {recentOrder && (
             <Link
