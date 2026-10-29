@@ -20,7 +20,9 @@ The menu page loads dishes from the Supabase `menu_items` table.
 2. Run [`supabase/seed.sql`](supabase/seed.sql) once in the Supabase SQL editor to add the `emoji` column and load the current menu.
 3. Run [`supabase/updates.sql`](supabase/updates.sql) **once** in the SQL editor. It deletes all test orders, adds the `restaurant_settings` table, changes `orders` to delivery-only and adds the `place_order` and `get_order_status` functions. Don't run it again once real orders exist: it deletes all orders.
 4. Run [`supabase/02_free_text_society.sql`](supabase/02_free_text_society.sql). It only replaces `place_order` so customers can type any society name. It doesn't delete or change any data.
+6. Run [`supabase/04_menu.sql`](supabase/04_menu.sql). It adds `menu_items.is_archived` ("Remove from menu"), lets signed-in staff add dishes, and stops archived dishes being ordered. It doesn't delete or change any data.
 5. Run [`supabase/03_owner_orders.sql`](supabase/03_owner_orders.sql). It turns on live updates for `orders`, lets signed-in staff read/update orders and mark dishes sold out (customers can still only read the menu), and adds a job that auto-rejects orders still pending after 8 minutes. It doesn't delete or change any data.
+6. Run [`supabase/04_menu.sql`](supabase/04_menu.sql). It adds `menu_items.is_archived` ("Remove from menu"), lets signed-in staff add dishes, and stops archived dishes being ordered. It doesn't delete or change any data.
 
 `category` must be one of the category ids below (e.g. `soups`). Dishes with both `price_half` and `price_full` get a Half/Full choice. Set `sold_out_until` to a future time to show a dish as sold out until then.
 
@@ -44,7 +46,12 @@ Tap **Start shift** to turn on the chime and keep the screen awake. The Orders t
 - **New**: pending orders, oldest first. A chime plays every 10 seconds while any are waiting; after 3 minutes the card flashes and the chime gets louder. **Accept** uses `default_prep_minutes` from `restaurant_settings`, or tap 30 / 40 / 50 min. **Reject** asks for a reason; "Item sold out" also hides that dish until the next 6:00 am IST. Orders not answered in 8 minutes are rejected automatically ("Restaurant didn't respond").
 - **Accepted today**: with **Print bill** (receipt for 58/80 mm printers or A4) and **Cancel** (customer not available / refused / other).
 
-All times are Indian time (IST). Menu, Offers and Sales tabs are coming soon.
+The **Menu** tab lists every dish by category (same order as the customer menu) with a search box:
+
+- **Available / Sold out** switch: Sold out lasts until the next 6:00 am IST, with a 5-second Undo. Long-press the switch or tap **⋯** for "Sold out until I turn it back on".
+- **+ Add dish** in each category, or tap a dish to edit it. Edit also has **Duplicate** and **Remove from menu** (hidden from customers; past orders are unaffected). Removed dishes can be restored from "Removed dishes" at the bottom.
+
+All times are Indian time (IST). Offers and Sales tabs are coming soon.
 
 ## Editing the menu (data/menu.ts)
 
@@ -52,7 +59,7 @@ The category list and order, card colours and GST rate live in [`data/menu.ts`](
 
 ### Change, add or remove dishes
 
-Edit the `menu_items` table in the Supabase table editor. Prices are whole rupees before GST. The menu updates on the next page load.
+Use the **Menu** tab on the owner screen (`/admin/menu`). Prices are whole rupees before GST. Customers see changes the next time they load the menu.
 
 ### Add, rename or reorder categories
 
@@ -86,6 +93,6 @@ lib/menu.tsx            Loads the menu from Supabase
 lib/orders.ts           place_order / get_order_status calls
 lib/settings.ts         Delivery fee and minimum order
 lib/customer.ts         Name, phone and address remembered on the phone
-supabase/               seed.sql, updates.sql, 02_free_text_society.sql, 03_owner_orders.sql
+supabase/               seed.sql, updates.sql, 02_…, 03_…, 04_menu.sql (run in order)
 data/menu.ts            ← the menu
 ```

@@ -14,6 +14,7 @@ type MenuItemRow = {
   is_bestseller: boolean | null;
   emoji: string | null;
   sold_out_until: string | null;
+  is_archived?: boolean | null; // "Remove from menu" (missing before 04_menu.sql)
 };
 
 const DEFAULT_COLOR = "from-amber-500 to-red-800";
@@ -25,6 +26,7 @@ function toCategoryId(value: string): CategoryId | undefined {
 }
 
 function toMenuItem(row: MenuItemRow, now: number): MenuItem | null {
+  if (row.is_archived) return null;
   const category = toCategoryId(row.category ?? "");
   if (!category) return null;
   // Reuse the card colour (and emoji fallback) from data/menu.ts when the name matches.

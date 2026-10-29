@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabase";
-import { next6amIST, startOfTodayIST } from "./ist";
+import { startOfTodayIST } from "./ist";
 
 export type AdminOrderItem = {
   id: string;
@@ -98,10 +98,7 @@ export function cancelOrder(id: string, reason: string) {
 }
 
 // Hide a dish from the menu until the next 6:00 am IST.
-export async function markSoldOutUntilMorning(menuItemId: string) {
-  const { error } = await db().from("menu_items").update({ sold_out_until: next6amIST().toISOString() }).eq("id", menuItemId);
-  if (error) throw error;
-}
+export { soldOutUntilMorning as markSoldOutUntilMorning } from "./menu";
 
 // "Flat 1204 · Tower B · Gaur City 2". Customers type these freely, so don't add a
 // label they already wrote ("Tower B", "Block C", "Flat 12") — avoids "Tower Tower B".
