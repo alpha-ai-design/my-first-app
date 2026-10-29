@@ -20,7 +20,6 @@ The menu page loads dishes from the Supabase `menu_items` table.
 2. Run [`supabase/seed.sql`](supabase/seed.sql) once in the Supabase SQL editor to add the `emoji` column and load the current menu.
 3. Run [`supabase/updates.sql`](supabase/updates.sql) **once** in the SQL editor. It deletes all test orders, adds the `restaurant_settings` table, changes `orders` to delivery-only and adds the `place_order` and `get_order_status` functions. Don't run it again once real orders exist: it deletes all orders.
 4. Run [`supabase/02_free_text_society.sql`](supabase/02_free_text_society.sql). It only replaces `place_order` so customers can type any society name. It doesn't delete or change any data.
-6. Run [`supabase/04_menu.sql`](supabase/04_menu.sql). It adds `menu_items.is_archived` ("Remove from menu"), lets signed-in staff add dishes, and stops archived dishes being ordered. It doesn't delete or change any data.
 5. Run [`supabase/03_owner_orders.sql`](supabase/03_owner_orders.sql). It turns on live updates for `orders`, lets signed-in staff read/update orders and mark dishes sold out (customers can still only read the menu), and adds a job that auto-rejects orders still pending after 8 minutes. It doesn't delete or change any data.
 6. Run [`supabase/04_menu.sql`](supabase/04_menu.sql). It adds `menu_items.is_archived` ("Remove from menu"), lets signed-in staff add dishes, and stops archived dishes being ordered. It doesn't delete or change any data.
 
