@@ -4,6 +4,7 @@ import type { Session } from "@supabase/supabase-js";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import PushSettings from "@/components/admin/PushSettings";
 import { playChime, unlockAudio } from "@/lib/admin/chime";
 import { minutesSince } from "@/lib/admin/ist";
 import {
@@ -117,7 +118,7 @@ function Loading() {
 
 function StartShift({ onStart }: { onStart: () => void }) {
   return (
-    <main className="mx-auto flex max-w-md flex-col items-center px-4 pt-20 text-center">
+    <main className="mx-auto flex max-w-md flex-col items-center px-4 pb-10 pt-12 text-center">
       <p className="text-6xl" aria-hidden>
         🔔
       </p>
@@ -130,6 +131,9 @@ function StartShift({ onStart }: { onStart: () => void }) {
       >
         Start shift
       </button>
+      <div className="mt-8 w-full">
+        <PushSettings />
+      </div>
     </main>
   );
 }

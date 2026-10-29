@@ -22,6 +22,7 @@ The menu page loads dishes from the Supabase `menu_items` table.
 4. Run [`supabase/02_free_text_society.sql`](supabase/02_free_text_society.sql). It only replaces `place_order` so customers can type any society name. It doesn't delete or change any data.
 5. Run [`supabase/03_owner_orders.sql`](supabase/03_owner_orders.sql). It turns on live updates for `orders`, lets signed-in staff read/update orders and mark dishes sold out (customers can still only read the menu), and adds a job that auto-rejects orders still pending after 8 minutes. It doesn't delete or change any data.
 6. Run [`supabase/04_menu.sql`](supabase/04_menu.sql). It adds `menu_items.is_archived` ("Remove from menu"), lets signed-in staff add dishes, and stops archived dishes being ordered. It doesn't delete or change any data.
+7. Run [`supabase/05_push.sql`](supabase/05_push.sql). It adds the `push_subscriptions` table (phones that turned on order notifications). It doesn't change any other data.
 
 `category` must be one of the category ids below (e.g. `soups`). Dishes with both `price_half` and `price_full` get a Half/Full choice. Set `sold_out_until` to a future time to show a dish as sold out until then.
 
@@ -49,6 +50,15 @@ The **Menu** tab lists every dish by category (same order as the customer menu) 
 
 - **Available / Sold out** switch: Sold out lasts until the next 6:00 am IST, with a 5-second Undo. Long-press the switch or tap **⋯** for "Sold out until I turn it back on".
 - **+ Add dish** in each category, or tap a dish to edit it. Edit also has **Duplicate** and **Remove from menu** (hidden from customers; past orders are unaffected). Removed dishes can be restored from "Removed dishes" at the bottom.
+
+### Order notifications (push)
+
+New orders also arrive as phone notifications, even when the owner screen is closed (standard Web Push, no paid services).
+
+- `/admin` is installable as the **Xu Kitchen** app (`public/admin.webmanifest`, icons in `public/icons/`). `public/sw.js` shows the notifications and opens `/admin` when one is tapped.
+- The Supabase Edge Function [`supabase/functions/notify-new-order`](supabase/functions/notify-new-order/index.ts) runs on every new order (Database Webhook on INSERT into `orders`) and sends to every saved phone, removing phones that are no longer valid. It also sends the "Send test notification" from Settings.
+- Keys: `NEXT_PUBLIC_VAPID_PUBLIC_KEY` in the website environment; `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` and `VAPID_SUBJECT` (e.g. `mailto:you@example.com`) as Supabase Edge Function secrets. **Never commit the private key.**
+- Turn notifications on from the Start shift screen or Settings. On iPhone this only works after "Add to Home Screen", opened from the home screen (iOS 16.4+).
 
 All times are Indian time (IST). Offers and Sales tabs are coming soon.
 
@@ -85,13 +95,15 @@ app/checkout/page.tsx   Delivery details and place order
 app/order/[id]/page.tsx Order status page
 app/admin/               Owner screen: login, orders, print bill, settings
 components/admin/       Admin shell (sign-in check, shift, chime, tabs)
-lib/admin/              Owner queries, IST time helpers, chime
+lib/admin/              Owner queries, IST time helpers, chime, push
+public/sw.js            Service worker for order notifications
+supabase/functions/     notify-new-order Edge Function (Deno)
 components/             Header, logo, item card, portion picker, cart bar
 lib/cart.tsx            Cart state (saved to localStorage)
 lib/menu.tsx            Loads the menu from Supabase
 lib/orders.ts           place_order / get_order_status calls
 lib/settings.ts         Delivery fee and minimum order
 lib/customer.ts         Name, phone and address remembered on the phone
-supabase/               seed.sql, updates.sql, 02_…, 03_…, 04_menu.sql (run in order)
+supabase/               seed.sql, updates.sql, 02_…, 03_…, 04_menu.sql, 05_push.sql (run in order)
 data/menu.ts            ← the menu
 ```

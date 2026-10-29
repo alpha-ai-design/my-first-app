@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import PushSettings from "@/components/admin/PushSettings";
 import { supabase } from "@/lib/supabase";
 
 const MIN_LENGTH = 8;
@@ -42,6 +43,8 @@ export default function AdminSettingsPage() {
   return (
     <main className="mx-auto max-w-md space-y-6 px-4 pt-6">
       <h1 className="text-3xl font-bold">Settings</h1>
+
+      <PushSettings />
 
       <form onSubmit={changePassword} className="space-y-4 rounded-2xl bg-white p-4 shadow-sm">
         <h2 className="text-xl font-bold">Change password</h2>
