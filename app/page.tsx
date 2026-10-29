@@ -1,21 +1,34 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { categories, menu, type MenuItem } from "@/data/menu";
+import { categories, type MenuItem } from "@/data/menu";
 import { useCart } from "@/lib/cart";
+import { fetchMenu } from "@/lib/menu-db";
 import MenuItemCard from "@/components/MenuItemCard";
 import PortionSheet from "@/components/PortionSheet";
 import CartBar from "@/components/CartBar";
 
 export default function MenuPage() {
   const { add } = useCart();
+  const [menu, setMenu] = useState<MenuItem[] | null>(null);
+  const [loadError, setLoadError] = useState(false);
   const [query, setQuery] = useState("");
   const [vegOnly, setVegOnly] = useState(false);
   const [active, setActive] = useState<string>(categories[0].id);
   const [portionItem, setPortionItem] = useState<MenuItem | null>(null);
   const tabsRef = useRef<HTMLDivElement>(null);
 
+  useEffect(() => {
+    fetchMenu()
+      .then(setMenu)
+      .catch((err) => {
+        console.error("Could not load menu", err);
+        setLoadError(true);
+      });
+  }, []);
+
   const sections = useMemo(() => {
+    if (!menu) return [];
     const q = query.trim().toLowerCase();
     return categories
       .map((cat) => ({
@@ -25,7 +38,7 @@ export default function MenuPage() {
         ),
       }))
       .filter((s) => s.items.length > 0);
-  }, [query, vegOnly]);
+  }, [menu, query, vegOnly]);
 
   // Highlight the tab for whichever section is currently near the top.
   useEffect(() => {
@@ -122,7 +135,22 @@ export default function MenuPage() {
       </div>
 
       <div className="mx-auto max-w-5xl px-4">
-        {resultCount === 0 && (
+        {!menu && !loadError && <p className="py-16 text-center text-stone-500">Loading menu…</p>}
+
+        {loadError && (
+          <div className="py-16 text-center">
+            <p className="font-semibold">Sorry, we couldn&apos;t load the menu.</p>
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="mt-4 rounded-lg bg-brand px-5 py-2.5 font-semibold text-white"
+            >
+              Try again
+            </button>
+          </div>
+        )}
+
+        {menu && resultCount === 0 && (
           <div className="py-16 text-center">
             <p className="text-5xl" aria-hidden>
               🥢

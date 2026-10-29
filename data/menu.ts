@@ -42,6 +42,7 @@ export type MenuItem = {
   portions?: Portion[];
   emoji: string;
   color: string; // Tailwind gradient classes for the placeholder image
+  soldOut?: boolean; // set from Supabase `sold_out_until`
 };
 
 // Order here = order on the menu page and in the category tabs.

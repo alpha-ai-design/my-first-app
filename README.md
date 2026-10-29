@@ -12,9 +12,20 @@ npm run dev      # open http://localhost:3000
 npm run build    # production build (must pass before deploying)
 ```
 
-## Editing the menu
+## Supabase
 
-**Everything about the menu lives in one file: [`data/menu.ts`](data/menu.ts).** Change it, save, and the site updates.
+The menu page loads dishes from the Supabase `menu_items` table.
+
+1. Copy `.env.example` to `.env.local` and fill in `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (Supabase → Project Settings → API). Set the same two variables on your host when deploying.
+2. Run [`supabase/seed.sql`](supabase/seed.sql) once in the Supabase SQL editor to add the `emoji` column and load the current menu.
+
+`category` must be one of the category ids below (e.g. `soups`). Dishes with both `price_half` and `price_full` get a Half/Full choice. Set `sold_out_until` to a future time to show a dish as sold out until then.
+
+> The cart and checkout still read prices from `data/menu.ts` for now.
+
+## Editing the menu (data/menu.ts)
+
+The category list and order, card colours and GST live in [`data/menu.ts`](data/menu.ts). The dish list in that file is still used by the cart and checkout.
 
 ### Change a price
 
