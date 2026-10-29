@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { GST_RATE } from "@/data/menu";
 import { formatINR, unitPrice, useCart } from "@/lib/cart";
 import { emptyCustomer, getSavedCustomer, saveCustomer, type CustomerDetails } from "@/lib/customer";
@@ -12,14 +12,6 @@ import { useSettings } from "@/lib/settings";
 // Indian mobile numbers: 10 digits starting with 6, 7, 8 or 9.
 const MOBILE_RE = /^[6-9]\d{9}$/;
 const NOTES_MAX = 200;
-const HOME_SOCIETY = "Gaur City 2";
-const NOT_SERVED = "Sorry, we only deliver within Gaur City 2 and nearby societies.";
-
-// Societies for the dropdown, with Gaur City 2 first. Falls back to Gaur City 2 until settings load.
-function societyOptions(areas: string[] | undefined): string[] {
-  if (!areas?.length) return [HOME_SOCIETY];
-  return [...areas].sort((a, b) => Number(b === HOME_SOCIETY) - Number(a === HOME_SOCIETY));
-}
 
 type Errors = Partial<Record<keyof CustomerDetails, string>>;
 
@@ -44,25 +36,6 @@ export default function CheckoutPage() {
       setEditing(!saved.complete);
     }
   }, []);
-
-  const societies = useMemo(() => societyOptions(settings?.delivery_areas), [settings]);
-
-  // With only one society there is nothing to choose, so pick it (but never swap in a
-  // different society for someone whose saved one we no longer serve).
-  useEffect(() => {
-    if (settings && societies.length === 1 && !details.society && !errors.society) {
-      setDetails((d) => ({ ...d, society: societies[0] }));
-    }
-  }, [settings, societies, details.society, errors.society]);
-
-  // A saved society we no longer deliver to: open the form and say so.
-  useEffect(() => {
-    if (settings && !editing && !settings.delivery_areas.includes(details.society)) {
-      setEditing(true);
-      setDetails((d) => ({ ...d, society: "" }));
-      setErrors((e) => ({ ...e, society: NOT_SERVED }));
-    }
-  }, [settings, editing, details.society]);
 
   if (!cart.hydrated || placed) return <main className="min-h-[60dvh]" />;
 
@@ -91,7 +64,7 @@ export default function CheckoutPage() {
     const e: Errors = {};
     if (!details.name.trim()) e.name = "Please enter your name.";
     if (!MOBILE_RE.test(details.phone)) e.phone = "Enter a valid 10-digit mobile number (starts with 6–9).";
-    if (!details.society) e.society = "Please choose your society.";
+    if (!details.society.trim()) e.society = "Please enter your society.";
     if (!details.tower.trim()) e.tower = "Please enter your tower or block.";
     if (!details.flatNumber.trim()) e.flatNumber = "Please enter your flat number.";
     setErrors(e);
@@ -113,7 +86,7 @@ export default function CheckoutPage() {
     const trimmed: CustomerDetails = {
       name: details.name.trim(),
       phone: details.phone,
-      society: details.society,
+      society: details.society.trim(),
       tower: details.tower.trim(),
       flatNumber: details.flatNumber.trim(),
       landmark: details.landmark.trim(),
@@ -160,6 +133,7 @@ export default function CheckoutPage() {
     key: keyof CustomerDetails,
     label: React.ReactNode,
     props: React.InputHTMLAttributes<HTMLInputElement> = {},
+    hint?: string,
   ) => (
     <label className="block">
       <span className="text-sm font-semibold">{label}</span>
@@ -170,6 +144,7 @@ export default function CheckoutPage() {
         aria-invalid={!!errors[key]}
         {...props}
       />
+      {hint && <span className="mt-1 block text-xs text-stone-500">{hint}</span>}
       {errors[key] && <span className="mt-1 block text-sm text-red-600">{errors[key]}</span>}
     </label>
   );
@@ -222,44 +197,7 @@ export default function CheckoutPage() {
                 {errors.phone && <span className="mt-1 block text-sm text-red-600">{errors.phone}</span>}
               </label>
 
-              <label className="block">
-                <span className="text-sm font-semibold">Society</span>
-                <div className="relative">
-                  <select
-                    value={details.society}
-                    onChange={(e) => set("society", e.target.value)}
-                    className={`${inputCls(errors.society)} appearance-none pr-9`}
-                    aria-invalid={!!errors.society}
-                  >
-                    {(!details.society || societies.length > 1) && (
-                      <option value="" disabled>
-                        Choose your society
-                      </option>
-                    )}
-                    {societies.map((name) => (
-                      <option key={name} value={name}>
-                        {name}
-                      </option>
-                    ))}
-                  </select>
-                  <svg
-                    viewBox="0 0 24 24"
-                    className="pointer-events-none absolute right-3 top-1/2 mt-0.5 h-4 w-4 -translate-y-1/2 text-stone-500"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth={2.5}
-                    aria-hidden
-                  >
-                    <path d="m6 9 6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </div>
-                <span className="mt-1 block text-xs text-stone-500">We deliver within Gaur City 2 and nearby societies.</span>
-                {errors.society && (
-                  <span role="status" className="mt-1 block text-sm font-semibold text-red-600">
-                    {errors.society}
-                  </span>
-                )}
-              </label>
+              {field("society", "Society", { placeholder: "e.g. Gaur City 2" }, "We deliver within about 3 km of Gaur City 2.")}
 
               {field("tower", "Tower / Block", { placeholder: "e.g. 14th Avenue, Tower B" })}
               {field("flatNumber", "Flat number", { placeholder: "e.g. 1204" })}

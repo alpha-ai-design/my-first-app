@@ -19,10 +19,11 @@ The menu page loads dishes from the Supabase `menu_items` table.
 1. Copy `.env.example` to `.env.local` and fill in `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (Supabase → Project Settings → API). Set the same two variables on your host when deploying.
 2. Run [`supabase/seed.sql`](supabase/seed.sql) once in the Supabase SQL editor to add the `emoji` column and load the current menu.
 3. Run [`supabase/updates.sql`](supabase/updates.sql) **once** in the SQL editor. It deletes all test orders, adds the `restaurant_settings` table, changes `orders` to delivery-only and adds the `place_order` and `get_order_status` functions. Don't run it again once real orders exist: it deletes all orders.
+4. Run [`supabase/02_free_text_society.sql`](supabase/02_free_text_society.sql). It only replaces `place_order` so customers can type any society name. It doesn't delete or change any data.
 
 `category` must be one of the category ids below (e.g. `soups`). Dishes with both `price_half` and `price_full` get a Half/Full choice. Set `sold_out_until` to a future time to show a dish as sold out until then.
 
-We deliver only to residents of Gaur City 2 (Greater Noida West) and a few nearby societies. The societies customers can pick at checkout are in `delivery_areas` in the single `restaurant_settings` row, e.g. `{"Gaur City 2","Gaur Saundaryam"}`. Gaur City 2 is always listed first. The same row holds the delivery fee, minimum order and default prep time (edit it in the table editor).
+We deliver within about 3 km of Gaur City 2 (Greater Noida West). At checkout customers type their society, tower and flat number; there is no list of allowed societies, so the owner rejects orders that are too far away. The single `restaurant_settings` row holds the delivery fee, minimum order and default prep time (edit it in the table editor). Its `delivery_areas` column is no longer used.
 
 Orders are saved to `orders` / `order_items` with status `pending`. The customer's status page updates within 5 seconds when the owner changes `status` to:
 
@@ -32,7 +33,7 @@ Orders are saved to `orders` / `order_items` with status `pending`. The customer
 
 ## Editing the menu (data/menu.ts)
 
-The category list and order, card colours and GST rate live in [`data/menu.ts`](data/menu.ts). If you change `GST_RATE`, change the `0.05` in `place_order` (`supabase/updates.sql`) too. The dish list in that file is only used for the original seed and card colours.
+The category list and order, card colours and GST rate live in [`data/menu.ts`](data/menu.ts). If you change `GST_RATE`, change the `0.05` in `place_order` too (latest version: `supabase/02_free_text_society.sql`). The dish list in that file is only used for the original seed and card colours.
 
 ### Change, add or remove dishes
 
@@ -65,8 +66,8 @@ components/             Header, logo, item card, portion picker, cart bar
 lib/cart.tsx            Cart state (saved to localStorage)
 lib/menu.tsx            Loads the menu from Supabase
 lib/orders.ts           place_order / get_order_status calls
-lib/settings.ts         Delivery societies, fee and minimum order
+lib/settings.ts         Delivery fee and minimum order
 lib/customer.ts         Name, phone and address remembered on the phone
-supabase/               seed.sql and updates.sql
+supabase/               seed.sql, updates.sql, 02_free_text_society.sql
 data/menu.ts            ← the menu
 ```
