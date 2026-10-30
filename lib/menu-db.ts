@@ -1,4 +1,5 @@
 import { categories, menu as staticMenu, type CategoryId, type MenuItem } from "@/data/menu";
+import type { Offer } from "@/lib/pricing";
 import { supabase } from "@/lib/supabase";
 
 // A row of the Supabase `menu_items` table.
@@ -39,6 +40,7 @@ function toMenuItem(row: MenuItemRow, now: number): MenuItem | null {
     name: row.name,
     description: row.description ?? "",
     category,
+    categoryRaw: row.category ?? "",
     price: hasPortions ? half : (full ?? half ?? 0),
     veg: row.is_veg,
     spice: Math.min(3, Math.max(0, row.spice_level ?? 0)) as MenuItem["spice"],
@@ -74,4 +76,16 @@ export async function fetchMenu(): Promise<MenuItem[]> {
     .map((row) => toMenuItem(row, now))
     .filter((m): m is MenuItem => m !== null)
     .sort(menuOrder);
+}
+
+// Offers that haven't ended yet (whether they have started is checked when prices are worked out).
+// Before 06_offers_and_sales.sql is run there is no offers table; then there are simply no offers.
+export async function fetchOffers(): Promise<Offer[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase.from("offers").select("*").eq("is_active", true).gte("ends_at", new Date().toISOString());
+  if (error) {
+    console.error("Could not load offers", error);
+    return [];
+  }
+  return (data ?? []).map((o) => ({ ...o, id: String(o.id), value: Number(o.value), min_order: Number(o.min_order ?? 0) })) as Offer[];
 }

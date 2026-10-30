@@ -25,6 +25,7 @@ export type AdminOrder = {
   landmark: string | null;
   notes: string | null;
   subtotal: number;
+  discount: number | null;
   gst: number;
   delivery_fee: number;
   total: number;
@@ -33,7 +34,7 @@ export type AdminOrder = {
 };
 
 const ORDER_COLUMNS =
-  "id, order_number, status, created_at, accepted_at, prep_minutes, customer_name, customer_phone, society, tower, flat_number, landmark, notes, subtotal, gst, delivery_fee, total, reject_reason, order_items(id, menu_item_id, name, portion, quantity, unit_price)";
+  "id, order_number, status, created_at, accepted_at, prep_minutes, customer_name, customer_phone, society, tower, flat_number, landmark, notes, subtotal, discount, gst, delivery_fee, total, reject_reason, order_items(id, menu_item_id, name, portion, quantity, unit_price)";
 
 function db() {
   if (!supabase) throw new Error("Supabase is not configured.");

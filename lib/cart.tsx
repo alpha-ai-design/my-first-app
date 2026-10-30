@@ -1,8 +1,9 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { GST_RATE, type MenuItem } from "@/data/menu";
+import type { MenuItem } from "@/data/menu";
 import { useMenu } from "@/lib/menu";
+import { dishOffer, gstOn, nextOrderOffer, orderOffer, type Applied, type Offer } from "@/lib/pricing";
 
 export type CartLine = {
   key: string; // itemId + portion, so Half and Full are separate lines
@@ -19,9 +20,13 @@ type CartContextValue = {
   remove: (key: string) => void;
   clear: () => void;
   count: number;
-  itemTotal: number;
-  gst: number;
-  grandTotal: number;
+  itemTotal: number; // subtotal at menu prices, before discounts
+  dishDiscount: number; // from dish and category offers
+  orderOffer: Applied | null; // the order-level offer applied, if any
+  discount: number; // dishDiscount + order offer
+  nextOffer: { offer: Offer; gap: number; discount: number } | null; // "Add ₹X more to get ₹Y off"
+  gst: number; // on (subtotal - discount)
+  grandTotal: number; // subtotal - discount + GST (delivery fee is added on the page)
   hydrated: boolean; // saved cart and menu are both loaded
 };
 
@@ -41,12 +46,19 @@ export function unitPrice(item: MenuItem, portion?: string): number {
   return item.price;
 }
 
+// Price of one unit after any dish or category offer.
+export function offerPrice(item: MenuItem, portion: string | undefined, offers: Offer[]): { price: number; applied: Applied | null } {
+  const base = unitPrice(item, portion);
+  const applied = dishOffer({ id: item.id, categoryRaw: item.categoryRaw ?? "" }, base, offers);
+  return { price: base - (applied?.discount ?? 0), applied };
+}
+
 export function formatINR(amount: number): string {
   return "₹" + Math.round(amount).toLocaleString("en-IN");
 }
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
-  const { menu, error: menuError, getItem } = useMenu();
+  const { menu, error: menuError, getItem, offers } = useMenu();
   const [lines, setLines] = useState<CartLine[]>([]);
   const [loaded, setLoaded] = useState(false);
 
@@ -107,11 +119,18 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   const value = useMemo<CartContextValue>(() => {
     const count = lines.reduce((s, l) => s + l.qty, 0);
-    const itemTotal = lines.reduce((s, l) => {
+    let itemTotal = 0;
+    let dishDiscount = 0;
+    for (const l of lines) {
       const item = getItem(l.itemId);
-      return item ? s + unitPrice(item, l.portion) * l.qty : s;
-    }, 0);
-    const gst = Math.round(itemTotal * GST_RATE);
+      if (!item) continue;
+      itemTotal += unitPrice(item, l.portion) * l.qty;
+      dishDiscount += (unitPrice(item, l.portion) - offerPrice(item, l.portion, offers).price) * l.qty;
+    }
+    const afterDish = itemTotal - dishDiscount;
+    const applied = orderOffer(afterDish, offers);
+    const discount = dishDiscount + (applied?.discount ?? 0);
+    const gst = gstOn(itemTotal - discount);
     return {
       lines,
       getItem,
@@ -121,11 +140,15 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       clear,
       count,
       itemTotal,
+      dishDiscount,
+      orderOffer: applied,
+      discount,
+      nextOffer: nextOrderOffer(afterDish, applied, offers),
       gst,
-      grandTotal: itemTotal + gst,
+      grandTotal: itemTotal - discount + gst,
       hydrated,
     };
-  }, [lines, getItem, add, decrement, remove, clear, hydrated]);
+  }, [lines, getItem, offers, add, decrement, remove, clear, hydrated]);
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 }

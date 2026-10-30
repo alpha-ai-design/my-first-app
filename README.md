@@ -23,6 +23,7 @@ The menu page loads dishes from the Supabase `menu_items` table.
 5. Run [`supabase/03_owner_orders.sql`](supabase/03_owner_orders.sql). It turns on live updates for `orders`, lets signed-in staff read/update orders and mark dishes sold out (customers can still only read the menu), and adds a job that auto-rejects orders still pending after 8 minutes. It doesn't delete or change any data.
 6. Run [`supabase/04_menu.sql`](supabase/04_menu.sql). It adds `menu_items.is_archived` ("Remove from menu"), lets signed-in staff add dishes, and stops archived dishes being ordered. It doesn't delete or change any data.
 7. Run [`supabase/05_push.sql`](supabase/05_push.sql). It adds the `push_subscriptions` table (phones that turned on order notifications). It doesn't change any other data.
+8. Run [`supabase/06_offers_and_sales.sql`](supabase/06_offers_and_sales.sql). It sets up offers (anyone can read them; only staff can create or stop them), records which offer each order used, makes `place_order` apply offers, and adds `sales_summary` for the Sales tab. It doesn't delete any data.
 
 `category` must be one of the category ids below (e.g. `soups`). Dishes with both `price_half` and `price_full` get a Half/Full choice. Set `sold_out_until` to a future time to show a dish as sold out until then.
 
@@ -60,11 +61,21 @@ New orders also arrive as phone notifications, even when the owner screen is clo
 - Keys: `NEXT_PUBLIC_VAPID_PUBLIC_KEY` in the website environment; `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` and `VAPID_SUBJECT` (e.g. `mailto:you@example.com`) as Supabase Edge Function secrets. **Never commit the private key.**
 - Turn notifications on from the Start shift screen or Settings. On iPhone this only works after "Add to Home Screen", opened from the home screen (iOS 16.4+).
 
-All times are Indian time (IST). Offers and Sales tabs are coming soon.
+The **Offers** tab lists Active, Scheduled and Ended offers (with **Stop now**) and creates new ones from three templates: % off a category, ₹ off a dish, or ₹ off orders above ₹X. Each offer needs an end date (Today only, This weekend, 7 days or a picked date, always 11:59 pm IST). A dish can only have one dish or category offer at a time.
+
+Offer rules (in `place_order` and mirrored in `lib/pricing.ts`, which must stay in sync): each dish gets at most one discount and a dish offer beats a category offer; a flat discount never takes a dish below ₹1; at most one order-level offer applies (the biggest, once the subtotal after dish discounts reaches its minimum); GST is 5% of (subtotal − discount). The checkout sends the total the customer saw; if an offer started or ended meanwhile, the order is refused with `PRICE_CHANGED`, prices reload and the cart is kept.
+
+The **Sales** tab shows Today, Yesterday, This week (from Monday) or This month, compared with the same point last week / last month: net sales (after discounts, without GST and delivery fees), orders, average order value, top dishes, dishes with no orders, missed sales by reason, and offer results.
+
+All times and day boundaries are Indian time (IST).
+
+## Design scale
+
+One type scale is defined in `app/globals.css` and used everywhere: `text-caption` 13px (secondary), `text-body` 15px, `text-heading` 17px (sections, card titles), `text-title` 21px (page titles), `text-metric` 26px (Sales numbers); 12px only for small badges. Spacing uses Tailwind's 4px steps. Primary buttons (Accept, Reject, Place order, Start shift) are at least 44px tall on phones; other buttons and chips at least 36px. Owner screens use 2–3 column grids from 768px, a 1200px max width, and a top tab row instead of the bottom tab bar from 1024px.
 
 ## Editing the menu (data/menu.ts)
 
-The category list and order, card colours and GST rate live in [`data/menu.ts`](data/menu.ts). If you change `GST_RATE`, change the `0.05` in `place_order` too (latest version: `supabase/02_free_text_society.sql`). The dish list in that file is only used for the original seed and card colours.
+The category list and order and card colours live in [`data/menu.ts`](data/menu.ts). GST is set in `lib/pricing.ts` (`GST_PERCENT`) and in `place_order` (latest version: `supabase/06_offers_and_sales.sql`); change both together. The dish list in that file is only used for the original seed and card colours.
 
 ### Change, add or remove dishes
 
@@ -84,7 +95,7 @@ Empty categories are hidden automatically.
 
 ### GST
 
-The tax rate is `GST_RATE` at the bottom of `data/menu.ts` (currently 5%).
+GST is 5% (`GST_PERCENT` in `lib/pricing.ts` and the `0.05` in `place_order`; change both together).
 
 ## Project layout
 
@@ -95,7 +106,8 @@ app/checkout/page.tsx   Delivery details and place order
 app/order/[id]/page.tsx Order status page
 app/admin/               Owner screen: login, orders, print bill, settings
 components/admin/       Admin shell (sign-in check, shift, chime, tabs)
-lib/admin/              Owner queries, IST time helpers, chime, push
+lib/admin/              Owner queries (orders, menu, offers, sales), IST time helpers, chime, push
+lib/pricing.ts          Offer and price rules (must match place_order)
 public/sw.js            Service worker for order notifications
 supabase/functions/     notify-new-order Edge Function (Deno)
 components/             Header, logo, item card, portion picker, cart bar
@@ -104,6 +116,6 @@ lib/menu.tsx            Loads the menu from Supabase
 lib/orders.ts           place_order / get_order_status calls
 lib/settings.ts         Delivery fee and minimum order
 lib/customer.ts         Name, phone and address remembered on the phone
-supabase/               seed.sql, updates.sql, 02_…, 03_…, 04_menu.sql, 05_push.sql (run in order)
+supabase/               seed.sql, updates.sql, 02_… to 06_offers_and_sales.sql (run in order)
 data/menu.ts            ← the menu
 ```

@@ -160,7 +160,7 @@ export default function DishForm({
   };
 
   const inputCls = (err?: string) =>
-    `mt-1 min-h-14 w-full rounded-xl border-2 bg-white px-4 text-lg outline-none focus:ring-2 ${
+    `mt-1 min-h-10 w-full rounded-lg border-2 bg-white px-3 outline-none focus:ring-2 ${
       err ? "border-red-600 focus:ring-red-200" : "border-stone-300 focus:border-brand focus:ring-brand/20"
     }`;
   // Errors sit next to the field (outside its label) and are linked with aria-describedby.
@@ -178,7 +178,7 @@ export default function DishForm({
       <label className="block">
         <span className="font-bold">{label}</span>
         <div className="relative">
-          <span className="pointer-events-none absolute left-4 top-1/2 mt-0.5 -translate-y-1/2 text-lg text-stone-500">₹</span>
+          <span className="pointer-events-none absolute left-3 top-1/2 mt-0.5 -translate-y-1/2 text-stone-600">₹</span>
           <input
             value={f[key]}
             onChange={(e) => set(key, e.target.value.replace(/\D/g, "").slice(0, 5))}
@@ -198,13 +198,13 @@ export default function DishForm({
       role="switch"
       aria-checked={on}
       onClick={onToggle}
-      className="flex min-h-14 w-full items-center justify-between gap-3 rounded-xl border-2 border-stone-300 bg-white px-4 text-lg font-bold"
+      className="flex min-h-10 w-full items-center justify-between gap-3 rounded-lg border border-stone-300 bg-white px-3 font-bold"
     >
       {label}
       <span className="flex items-center gap-2">
-        <span className="text-base text-stone-600">{on ? "On" : "Off"}</span>
-        <span className={`relative h-8 w-14 rounded-full transition ${on ? "bg-green-700" : "bg-stone-300"}`}>
-          <span className={`absolute top-1 h-6 w-6 rounded-full bg-white shadow transition-all ${on ? "left-7" : "left-1"}`} />
+        <span className="text-caption text-stone-600">{on ? "On" : "Off"}</span>
+        <span className={`relative h-6 w-11 rounded-full transition ${on ? "bg-green-700" : "bg-stone-300"}`}>
+          <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${on ? "left-[22px]" : "left-0.5"}`} />
         </span>
       </span>
     </button>
@@ -213,16 +213,16 @@ export default function DishForm({
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-stone-100" role="dialog" aria-modal="true" aria-labelledby="dish-form-title">
       <header className="flex items-center justify-between bg-ink px-4 py-2 text-white">
-        <h2 id="dish-form-title" className="text-xl font-bold">
+        <h2 id="dish-form-title" className="text-heading font-bold">
           {editing ? "Edit dish" : "Add dish"}
         </h2>
-        <button type="button" onClick={onClose} disabled={saving} className="min-h-12 rounded-lg px-4 text-lg font-bold hover:bg-white/10">
+        <button type="button" onClick={onClose} disabled={saving} className="min-h-10 rounded-lg px-4 font-bold hover:bg-white/10">
           Close
         </button>
       </header>
 
       <form ref={formRef} onSubmit={submit} noValidate className="flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-xl space-y-5 px-4 py-5 text-lg">
+        <div className="mx-auto max-w-xl space-y-4 px-4 py-4">
           <div>
             <label className="block">
               <span className="font-bold">Name</span>
@@ -260,25 +260,25 @@ export default function DishForm({
 
           <label className="block">
             <span className="font-bold">
-              Description <span className="font-normal text-stone-500">(optional)</span>
+              Description <span className="font-normal text-stone-600">(optional)</span>
             </span>
             <textarea
               value={f.description}
               onChange={(e) => set("description", e.target.value.slice(0, 200))}
               rows={2}
-              className="mt-1 w-full resize-none rounded-xl border-2 border-stone-300 bg-white p-3 text-lg outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+              className="mt-1 w-full resize-none rounded-xl border-2 border-stone-300 bg-white p-3 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
             />
           </label>
 
           <label className="block">
             <span className="font-bold">
-              Emoji <span className="font-normal text-stone-500">(optional, shown as the dish picture)</span>
+              Emoji <span className="font-normal text-stone-600">(optional, shown as the dish picture)</span>
             </span>
             <input
               value={f.emoji}
               onChange={(e) => set("emoji", e.target.value.slice(0, 8))}
               placeholder="🍜"
-              className={`${inputCls()} w-28 text-2xl`}
+              className={`${inputCls()} w-24 text-xl`}
             />
           </label>
 
@@ -293,7 +293,7 @@ export default function DishForm({
                   aria-checked={f.veg === veg}
                   {...errorProps("veg")}
                   onClick={() => set("veg", veg)}
-                  className={`flex min-h-14 items-center justify-center gap-2 rounded-xl border-2 text-lg font-bold ${
+                  className={`flex min-h-10 items-center justify-center gap-2 rounded-lg border-2 font-bold ${
                     f.veg === veg
                       ? veg
                         ? "border-green-700 bg-green-50 text-green-800"
@@ -320,7 +320,7 @@ export default function DishForm({
                   role="radio"
                   aria-checked={f.spice === level}
                   onClick={() => set("spice", level)}
-                  className={`flex min-h-14 flex-col items-center justify-center rounded-xl border-2 text-sm font-bold ${
+                  className={`flex min-h-11 flex-col items-center justify-center rounded-lg border-2 text-caption font-bold ${
                     f.spice === level ? "border-brand bg-brand/10 text-brand" : "border-stone-300 bg-white"
                   }`}
                 >
@@ -333,7 +333,7 @@ export default function DishForm({
 
           {switchBtn(f.bestseller, () => set("bestseller", !f.bestseller), "★ Bestseller")}
 
-          <div className="space-y-3 rounded-2xl bg-white p-4">
+          <div className="space-y-3 rounded-xl bg-white p-3">
             {switchBtn(f.hasPortions, () => set("hasPortions", !f.hasPortions), "Has Half / Full portions")}
             {f.hasPortions ? (
               <div className="grid grid-cols-2 gap-3">
@@ -351,7 +351,7 @@ export default function DishForm({
                 type="button"
                 disabled={saving}
                 onClick={() => onDuplicate(editing)}
-                className="min-h-12 rounded-xl border-2 border-ink bg-white font-bold"
+                className="min-h-10 rounded-xl border-2 border-ink bg-white font-bold"
               >
                 Duplicate
               </button>
@@ -359,7 +359,7 @@ export default function DishForm({
                 type="button"
                 disabled={saving}
                 onClick={() => onRemove(editing)}
-                className="min-h-12 rounded-xl border-2 border-red-700 bg-white font-bold text-red-700"
+                className="min-h-10 rounded-xl border-2 border-red-700 bg-white font-bold text-red-700"
               >
                 Remove from menu
               </button>
@@ -380,7 +380,7 @@ export default function DishForm({
             <button
               type="submit"
               disabled={saving}
-              className="min-h-14 w-full rounded-xl bg-green-700 text-xl font-bold text-white disabled:opacity-60"
+              className="min-h-11 w-full rounded-lg bg-green-700 text-heading font-bold text-white disabled:opacity-60 md:min-h-10"
             >
               {saving ? "Saving…" : editing ? "Save changes" : "Add to menu"}
             </button>

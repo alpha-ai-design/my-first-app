@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getPushState, isIOS, sendTestNotification, turnOnNotifications, type PushState } from "@/lib/admin/push";
+import { getPushState, isIOS, PushError, PUSH_MESSAGES, sendTestNotification, turnOnNotifications, type PushState } from "@/lib/admin/push";
 
 // "Turn on order notifications" + "Send test notification", with help for iPhone and blocked permission.
 export default function PushSettings() {
@@ -29,8 +29,10 @@ export default function PushSettings() {
       if (next === "on") setMessage({ ok: true, text: "Done. Send a test to check it works." });
       if (next === "off") setMessage({ ok: false, text: "Notifications weren't allowed. Tap the button again and choose Allow." });
     } catch (err) {
-      console.error("Turning on notifications failed", err);
-      setMessage({ ok: false, text: "Couldn't turn on notifications. Check the internet and try again." });
+      if (err instanceof PushError && err.kind === "blocked") setState("blocked");
+      else if (err instanceof PushError && err.kind === "unsupported") setState("unsupported");
+      else setMessage({ ok: false, text: err instanceof PushError ? err.message : PUSH_MESSAGES.setup });
+      if (!(err instanceof PushError)) console.error("Turning on notifications failed", err);
     } finally {
       setBusy(false);
     }
@@ -49,57 +51,35 @@ export default function PushSettings() {
   };
 
   const on = state === "on";
-  const btn = "min-h-14 w-full rounded-xl px-4 text-lg font-bold disabled:opacity-50";
+  const btn = "min-h-11 w-full rounded-lg px-4 font-bold disabled:opacity-50 md:min-h-10";
+  const help = "rounded-lg bg-yellow-100 p-2.5 font-semibold text-yellow-950";
 
   return (
-    <section className="space-y-3 rounded-2xl bg-white p-4 text-left shadow-sm" aria-labelledby="push-heading">
+    <section className="space-y-2.5 rounded-xl bg-white p-3 text-left shadow-sm" aria-labelledby="push-heading">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 id="push-heading" className="text-xl font-bold">
+        <h2 id="push-heading" className="text-heading font-bold">
           Order notifications
         </h2>
         {state !== "checking" && (
-          <span
-            className={`rounded-md px-2.5 py-1 text-base font-extrabold text-white ${on ? "bg-green-700" : "bg-stone-600"}`}
-            role="status"
-          >
+          <span className={`rounded-md px-2 py-0.5 text-caption font-bold text-white ${on ? "bg-green-700" : "bg-stone-600"}`} role="status">
             {on ? "Notifications on" : "Notifications off"}
           </span>
         )}
       </div>
-      <p className="text-stone-600">Get an alert for every new order, even when this screen is closed.</p>
+      <p className="text-caption text-stone-600">Get an alert for every new order, even when this screen is closed.</p>
 
-      {state === "checking" && <p className="text-stone-500">Checking…</p>}
+      {state === "checking" && <p className="text-stone-600">Checking…</p>}
 
-      {state === "ios-add-to-home" && (
-        <p className="rounded-xl bg-yellow-100 p-3 text-lg font-semibold text-yellow-950">
-          Tap Share, then Add to Home Screen, then open Xu Kitchen from your home screen.
-        </p>
-      )}
+      {state === "ios-add-to-home" && <p className={help}>Tap Share, then Add to Home Screen, then open Xu Kitchen from your home screen.</p>}
 
-      {state === "unsupported" && (
-        <p className="rounded-xl bg-yellow-100 p-3 font-semibold text-yellow-950">
-          This browser can&apos;t show notifications. On Android use Chrome. On iPhone, add Xu Kitchen to the Home Screen and open it from there.
-        </p>
-      )}
+      {state === "unsupported" && <p className={help}>{PUSH_MESSAGES.unsupported}</p>}
 
-      {state === "not-configured" && (
-        <p className="rounded-xl bg-yellow-100 p-3 font-semibold text-yellow-950">
-          Notifications aren&apos;t set up yet: NEXT_PUBLIC_VAPID_PUBLIC_KEY is missing in the website settings.
-        </p>
-      )}
+      {state === "not-configured" && <p className={help}>{PUSH_MESSAGES.setup}</p>}
 
       {state === "blocked" && (
-        <div className="space-y-1 rounded-xl bg-yellow-100 p-3 font-semibold text-yellow-950">
-          <p>Notifications are blocked for Xu Kitchen. To allow them again:</p>
-          {ios ? (
-            <p>Open the iPhone Settings app → Notifications → Xu Kitchen → turn on Allow Notifications. Then come back here.</p>
-          ) : (
-            <p>
-              In Chrome, tap the icon to the left of the web address → Permissions (or Site settings) → Notifications → Allow. Or open the phone Settings →
-              Apps → Chrome (or Xu Kitchen) → Notifications → Allow. Then come back here and reload.
-            </p>
-          )}
-        </div>
+        <p className={help}>
+          {ios ? PUSH_MESSAGES.blockedIOS : PUSH_MESSAGES.blocked} Then come back here and reload.
+        </p>
       )}
 
       {state === "off" && (
@@ -114,7 +94,11 @@ export default function PushSettings() {
         </button>
       )}
 
-      {message && <p className={`rounded-xl p-3 font-semibold ${message.ok ? "bg-green-50 text-green-800" : "bg-red-50 text-red-700"}`}>{message.text}</p>}
+      {message && (
+        <p role="status" className={`rounded-lg p-2.5 font-semibold ${message.ok ? "bg-green-50 text-green-800" : "bg-red-50 text-red-700"}`}>
+          {message.text}
+        </p>
+      )}
     </section>
   );
 }

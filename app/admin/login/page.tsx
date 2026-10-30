@@ -23,21 +23,21 @@ export default function AdminLoginPage() {
   };
 
   const inputCls =
-    "mt-1 min-h-14 w-full rounded-xl border border-stone-300 bg-white px-4 text-lg outline-none focus:border-brand focus:ring-2 focus:ring-brand/20";
+    "mt-1 min-h-10 w-full rounded-lg border border-stone-300 bg-white px-3 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20";
 
   return (
-    <main className="mx-auto max-w-sm px-4 pt-16 text-lg">
-      <h1 className="font-display text-3xl">
+    <main className="mx-auto max-w-sm px-4 pt-12">
+      <h1 className="font-display text-title">
         Xu <span className="text-brand">Kitchen</span>
       </h1>
       <p className="mt-1 text-stone-600">Sign in to see orders.</p>
-      <form onSubmit={signIn} className="mt-8 space-y-5">
+      <form onSubmit={signIn} className="mt-6 space-y-4">
         <label className="block">
-          <span className="font-semibold">Email</span>
+          <span className="text-caption font-semibold">Email</span>
           <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="username" required className={inputCls} />
         </label>
         <label className="block">
-          <span className="font-semibold">Password</span>
+          <span className="text-caption font-semibold">Password</span>
           <input
             type="password"
             value={password}
@@ -48,11 +48,11 @@ export default function AdminLoginPage() {
           />
         </label>
         {error && (
-          <p role="alert" className="rounded-xl bg-red-50 p-3 font-semibold text-red-700 ring-1 ring-red-200">
+          <p role="alert" className="rounded-lg bg-red-50 p-2.5 font-semibold text-red-700 ring-1 ring-red-200">
             {error}
           </p>
         )}
-        <button type="submit" disabled={busy} className="min-h-14 w-full rounded-xl bg-brand text-xl font-bold text-white disabled:opacity-60">
+        <button type="submit" disabled={busy} className="min-h-11 w-full rounded-lg bg-brand text-heading font-bold text-white disabled:opacity-60 md:min-h-10">
           {busy ? "Signing in…" : "Sign in"}
         </button>
       </form>

@@ -38,35 +38,35 @@ export default function AdminSettingsPage() {
   };
 
   const inputCls =
-    "mt-1 min-h-14 w-full rounded-xl border border-stone-300 bg-white px-4 text-lg outline-none focus:border-brand focus:ring-2 focus:ring-brand/20";
+    "mt-1 min-h-10 w-full rounded-lg border border-stone-300 bg-white px-3 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20";
 
   return (
-    <main className="mx-auto max-w-md space-y-6 px-4 pt-6">
-      <h1 className="text-3xl font-bold">Settings</h1>
+    <main className="mx-auto max-w-md space-y-4 px-4 pt-4">
+      <h1 className="text-title font-bold">Settings</h1>
 
       <PushSettings />
 
-      <form onSubmit={changePassword} className="space-y-4 rounded-2xl bg-white p-4 shadow-sm">
-        <h2 className="text-xl font-bold">Change password</h2>
+      <form onSubmit={changePassword} className="space-y-3 rounded-xl bg-white p-3 shadow-sm">
+        <h2 className="text-heading font-bold">Change password</h2>
         <label className="block">
-          <span className="font-semibold">New password</span>
+          <span className="text-caption font-semibold">New password</span>
           <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" className={inputCls} />
         </label>
         <label className="block">
-          <span className="font-semibold">Type it again</span>
+          <span className="text-caption font-semibold">Type it again</span>
           <input type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} autoComplete="new-password" className={inputCls} />
         </label>
         {message && (
-          <p role="status" className={`rounded-xl p-3 font-semibold ${message.ok ? "bg-green-50 text-green-800" : "bg-red-50 text-red-700"}`}>
+          <p role="status" className={`rounded-lg p-2.5 font-semibold ${message.ok ? "bg-green-50 text-green-800" : "bg-red-50 text-red-700"}`}>
             {message.text}
           </p>
         )}
-        <button type="submit" disabled={busy} className="min-h-14 w-full rounded-xl bg-ink text-lg font-bold text-white disabled:opacity-60">
+        <button type="submit" disabled={busy} className="min-h-10 w-full rounded-lg bg-ink font-bold text-white disabled:opacity-60">
           {busy ? "Saving…" : "Change password"}
         </button>
       </form>
 
-      <button type="button" onClick={logOut} className="min-h-14 w-full rounded-xl border-2 border-brand bg-white text-lg font-bold text-brand">
+      <button type="button" onClick={logOut} className="min-h-10 w-full rounded-lg border-2 border-brand bg-white font-bold text-brand">
         Log out
       </button>
     </main>

@@ -88,17 +88,19 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   };
 
   return (
-    <div className="min-h-dvh bg-stone-100 pb-24 text-lg">
-      <header className="sticky top-0 z-30 flex items-center justify-between bg-ink px-4 py-2 text-white">
-        <p className="font-display text-xl">
-          Xu <span className="text-gold">Kitchen</span>
-        </p>
-        <Link
-          href="/admin/settings"
-          className={`flex min-h-12 items-center gap-2 rounded-lg px-3 font-semibold ${pathname === "/admin/settings" ? "bg-white/20" : "hover:bg-white/10"}`}
-        >
-          <span aria-hidden>⚙️</span> Settings
-        </Link>
+    <div className="min-h-dvh bg-stone-100 pb-20 lg:pb-8">
+      <header className="sticky top-0 z-30 bg-ink text-white">
+        <div className="mx-auto flex h-12 max-w-[1200px] items-center justify-between px-4">
+          <p className="font-display text-heading">
+            Xu <span className="text-gold">Kitchen</span>
+          </p>
+          <Link
+            href="/admin/settings"
+            className={`flex min-h-10 items-center gap-1.5 rounded-lg px-3 font-semibold ${pathname === "/admin/settings" ? "bg-white/20" : "hover:bg-white/10"}`}
+          >
+            <span aria-hidden>⚙️</span> Settings
+          </Link>
+        </div>
       </header>
 
       {started ? (
@@ -113,25 +115,25 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
 }
 
 function Loading() {
-  return <p className="p-6 text-center text-lg text-stone-500">Loading…</p>;
+  return <p className="p-6 text-center text-stone-600">Loading…</p>;
 }
 
 function StartShift({ onStart }: { onStart: () => void }) {
   return (
-    <main className="mx-auto flex max-w-md flex-col items-center px-4 pb-10 pt-12 text-center">
-      <p className="text-6xl" aria-hidden>
+    <main className="mx-auto flex max-w-md flex-col items-center px-4 pb-8 pt-8 text-center">
+      <p className="text-4xl" aria-hidden>
         🔔
       </p>
-      <h1 className="mt-4 text-3xl font-bold">Ready to cook?</h1>
-      <p className="mt-2 text-stone-600">Starting your shift turns on the new-order chime and keeps the screen awake.</p>
+      <h1 className="mt-3 text-title font-bold">Ready to cook?</h1>
+      <p className="mt-1 text-stone-600">Starting your shift turns on the new-order chime and keeps the screen awake.</p>
       <button
         type="button"
         onClick={onStart}
-        className="mt-8 min-h-16 w-full rounded-2xl bg-green-700 px-6 text-2xl font-bold text-white shadow-lg active:bg-green-800"
+        className="mt-5 min-h-11 w-full rounded-xl bg-green-700 px-6 text-heading font-bold text-white shadow-md active:bg-green-800"
       >
         Start shift
       </button>
-      <div className="mt-8 w-full">
+      <div className="mt-5 w-full">
         <PushSettings />
       </div>
     </main>
@@ -243,16 +245,12 @@ function Shift({ children }: { children: React.ReactNode }) {
 
   return (
     <ShiftContext.Provider value={value}>
-      {children}
-
-      {toast && (
-        <div role="status" className="fixed inset-x-3 bottom-24 z-50 mx-auto max-w-md rounded-xl bg-ink px-4 py-3 text-center font-bold text-white shadow-2xl">
-          {toast}
-        </div>
-      )}
-
-      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-stone-300 bg-white pb-[env(safe-area-inset-bottom)]" aria-label="Kitchen sections">
-        <ul className="mx-auto grid max-w-2xl grid-cols-4">
+      {/* Bottom tab bar on phones; a top tab row under the header on screens 1024px and wider. */}
+      <nav
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-stone-300 bg-white pb-[env(safe-area-inset-bottom)] lg:sticky lg:top-12 lg:bottom-auto lg:border-b lg:border-t-0 lg:pb-0"
+        aria-label="Kitchen sections"
+      >
+        <ul className="mx-auto grid max-w-2xl grid-cols-4 lg:flex lg:max-w-[1200px] lg:gap-1 lg:px-4">
           {TABS.map((tab) => {
             const active = pathname.startsWith(tab.href);
             const badge = tab.href === "/admin/orders" && pending.length > 0 ? pending.length : 0;
@@ -261,16 +259,16 @@ function Shift({ children }: { children: React.ReactNode }) {
                 <Link
                   href={tab.href}
                   aria-current={active ? "page" : undefined}
-                  className={`relative flex min-h-16 flex-col items-center justify-center text-sm font-bold ${
-                    active ? "bg-brand/10 text-brand" : "text-stone-600"
+                  className={`relative flex min-h-14 flex-col items-center justify-center text-caption font-bold lg:min-h-10 lg:flex-row lg:gap-1.5 lg:rounded-lg lg:px-4 lg:text-body ${
+                    active ? "bg-brand/10 text-brand lg:bg-brand lg:text-white" : "text-stone-700 lg:hover:bg-stone-100"
                   }`}
                 >
-                  <span className="text-2xl" aria-hidden>
+                  <span className="text-xl lg:text-base" aria-hidden>
                     {tab.icon}
                   </span>
                   {tab.label}
                   {badge > 0 && (
-                    <span className="absolute right-3 top-1.5 grid h-6 min-w-6 place-items-center rounded-full bg-brand px-1.5 text-sm text-white">
+                    <span className="absolute right-3 top-1 grid h-5 min-w-5 place-items-center rounded-full bg-brand px-1 text-[12px] text-white ring-2 ring-white lg:static lg:ring-0">
                       {badge}
                       <span className="sr-only"> new orders</span>
                     </span>
@@ -281,6 +279,15 @@ function Shift({ children }: { children: React.ReactNode }) {
           })}
         </ul>
       </nav>
+
+      {children}
+
+      {toast && (
+        <div role="status" className="fixed inset-x-3 bottom-20 z-50 mx-auto max-w-md rounded-xl bg-ink px-4 py-2.5 text-center font-semibold text-white shadow-2xl lg:bottom-6">
+          {toast}
+        </div>
+      )}
+
     </ShiftContext.Provider>
   );
 }

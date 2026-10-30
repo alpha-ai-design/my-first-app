@@ -84,6 +84,12 @@ export default function PrintBillPage() {
           <span>Subtotal</span>
           <span>{formatINR(Number(order.subtotal))}</span>
         </div>
+        {Number(order.discount ?? 0) > 0 && (
+          <div className={row}>
+            <span>Offer discount</span>
+            <span>−{formatINR(Number(order.discount))}</span>
+          </div>
+        )}
         <div className={row}>
           <span>GST (5%)</span>
           <span>{formatINR(Number(order.gst))}</span>

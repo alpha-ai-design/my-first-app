@@ -8,6 +8,20 @@
   --color-gold-light: #f6dd9b;
   --color-cream: #fbf6ee;
   --font-display: "Arial Black", "Helvetica Neue", Impact, sans-serif;
+
+  /* One type scale for the whole app (customer and owner screens).
+     Hierarchy comes from weight and colour; sizes stay compact. */
+  --text-caption: 13px; /* secondary text, labels, badges */
+  --text-caption--line-height: 1.35;
+  --text-body: 15px; /* body text, buttons, inputs */
+  --text-body--line-height: 1.45;
+  --text-heading: 17px; /* section headings, card titles */
+  --text-heading--line-height: 1.3;
+  --text-title: 21px; /* page titles */
+  --text-title--line-height: 1.2;
+  --text-metric: 26px; /* key numbers on Sales cards */
+  --text-metric--line-height: 1.1;
+  /* Spacing stays on Tailwind's 4px steps (p-1 = 4px, p-2 = 8px, p-3 = 12px, p-4 = 16px). */
 }
 
 html {
@@ -18,6 +32,8 @@ html {
 body {
   background: var(--color-cream);
   color: var(--color-ink);
+  font-size: var(--text-body);
+  line-height: var(--text-body--line-height);
 }
 
 .no-scrollbar {

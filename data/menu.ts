@@ -35,6 +35,7 @@ export type MenuItem = {
   name: string;
   description: string;
   category: CategoryId;
+  categoryRaw?: string; // category exactly as stored in menu_items (offers match on this)
   price: number; // used when there are no portions; otherwise the lowest portion price
   veg: boolean;
   spice: 0 | 1 | 2 | 3;
@@ -464,7 +465,5 @@ export const menu: MenuItem[] = [
   },
 ];
 
-// Tax rate applied on the cart page.
-export const GST_RATE = 0.05;
 
 export const RESTAURANT_NAME = "Xu Noodles";

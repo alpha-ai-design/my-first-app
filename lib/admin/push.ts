@@ -5,7 +5,24 @@ import { supabase } from "@/lib/supabase";
 
 const SW_URL = "/sw.js";
 const SW_SCOPE = "/admin";
-const PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? "";
+// Pasted keys often pick up spaces, quotes or line breaks; none of those belong in a base64url key.
+const PUBLIC_KEY = (process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? "").replace(/[\s"'`]/g, "");
+
+// What the owner sees when something goes wrong.
+export const PUSH_MESSAGES = {
+  blocked: "Notifications are blocked. Tap the lock icon next to the address, then Notifications, then Allow.",
+  blockedIOS: "Notifications are blocked. Open the iPhone Settings app → Notifications → Xu Kitchen → turn on Allow Notifications.",
+  unsupported: "This browser can't receive notifications. Use Chrome, or on iPhone add Xu Kitchen to your home screen.",
+  setup: "Notifications aren't set up correctly. Please contact whoever set up this app.",
+  offline: "You're offline. Connect to the internet and try again.",
+} as const;
+
+export class PushError extends Error {
+  constructor(public readonly kind: keyof typeof PUSH_MESSAGES, cause?: unknown) {
+    super(PUSH_MESSAGES[kind]);
+    if (cause) console.error("Push notifications:", kind, cause);
+  }
+}
 
 export type PushState =
   | "checking"
@@ -62,19 +79,43 @@ export async function turnOnNotifications(): Promise<PushState> {
   if (permission === "denied") return "blocked";
   if (permission !== "granted") return "off";
 
-  await navigator.serviceWorker.register(SW_URL, { scope: SW_SCOPE });
-  const reg = await navigator.serviceWorker.getRegistration(SW_SCOPE);
-  if (!reg) throw new Error("Service worker did not register");
+  if (!navigator.onLine) throw new PushError("offline");
+
+  let reg: ServiceWorkerRegistration | undefined;
+  try {
+    await navigator.serviceWorker.register(SW_URL, { scope: SW_SCOPE });
+    reg = await navigator.serviceWorker.getRegistration(SW_SCOPE);
+  } catch (err) {
+    throw new PushError("unsupported", err);
+  }
+  if (!reg) throw new PushError("unsupported", "service worker did not register");
   await waitUntilActive(reg);
 
-  const key = keyBytes(PUBLIC_KEY);
+  let key: Uint8Array<ArrayBuffer>;
+  try {
+    key = keyBytes(PUBLIC_KEY);
+    if (key.length !== 65 || key[0] !== 4) throw new Error(`public key has ${key.length} bytes`);
+  } catch (err) {
+    throw new PushError("setup", err); // NEXT_PUBLIC_VAPID_PUBLIC_KEY isn't a valid public key
+  }
+
   let sub = await reg.pushManager.getSubscription();
   if (sub && !sameKey(sub.options.applicationServerKey, key)) {
     await sub.unsubscribe(); // made with an old key
     sub = null;
   }
-  sub ??= await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key });
-  await save(sub);
+  try {
+    sub ??= await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key });
+  } catch (err) {
+    if (err instanceof DOMException && err.name === "NotAllowedError") throw new PushError("blocked", err);
+    if (!navigator.onLine) throw new PushError("offline", err);
+    throw new PushError("setup", err); // bad key, or the browser's push service refused it
+  }
+  try {
+    await save(sub);
+  } catch (err) {
+    throw new PushError("setup", err); // e.g. push_subscriptions table missing (05_push.sql not run)
+  }
   return "on";
 }
 
@@ -91,13 +132,19 @@ function waitUntilActive(reg: ServiceWorkerRegistration): Promise<void> {
 export async function sendTestNotification(): Promise<string | null> {
   const sub = await currentSubscription();
   if (!sub) return "Notifications are off on this phone. Turn them on first.";
+  if (!navigator.onLine) return PUSH_MESSAGES.offline;
   const { error } = await supabase!.functions.invoke("notify-new-order", { body: { type: "test", endpoint: sub.endpoint } });
   if (!error) return null;
-  if (error instanceof FunctionsHttpError) {
-    const body = await error.context.json().catch(() => null);
-    if (error.context.status === 410) return "This phone's registration has expired. Tap “Turn on order notifications” again.";
-    if (body?.error) return body.error;
-  }
   console.error("Test notification failed", error);
-  return "Couldn't send the test. Check the internet, and that the notify-new-order function is set up in Supabase.";
+  if (error instanceof FunctionsHttpError) {
+    const status = error.context.status;
+    // Our function answers 404 "isn't registered" / 410 for an expired phone; a 404 without that
+    // message means the function itself isn't deployed.
+    const body = await error.context.json().catch(() => null);
+    const expired = status === 410 || (status === 404 && /registered/i.test(body?.error ?? ""));
+    if (expired) return "This phone's registration has expired. Tap “Turn on order notifications” again.";
+    if (status === 401) return "Your sign-in has expired. Log out and sign in again, then try the test.";
+  }
+  // Function not deployed, secrets missing or wrong, or another server-side problem.
+  return PUSH_MESSAGES.setup;
 }

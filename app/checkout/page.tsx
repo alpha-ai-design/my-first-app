@@ -3,22 +3,25 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { GST_RATE } from "@/data/menu";
+import BillLines from "@/components/BillLines";
 import { formatINR, unitPrice, useCart } from "@/lib/cart";
 import { emptyCustomer, getSavedCustomer, saveCustomer, type CustomerDetails } from "@/lib/customer";
-import { placeOrder, saveOrder } from "@/lib/orders";
-import { useSettings } from "@/lib/settings";
+import { useMenu } from "@/lib/menu";
+import { PriceChangedError, placeOrder, saveOrder } from "@/lib/orders";
+import { reloadSettings, useSettings } from "@/lib/settings";
 
 // Indian mobile numbers: 10 digits starting with 6, 7, 8 or 9.
 const MOBILE_RE = /^[6-9]\d{9}$/;
 const NOTES_MAX = 200;
+const PRICE_CHANGED_MESSAGE = "Prices changed because an offer just ended. Please check your new total.";
 
 type Errors = Partial<Record<keyof CustomerDetails, string>>;
 
 export default function CheckoutPage() {
   const cart = useCart();
   const router = useRouter();
-  const settings = useSettings();
+  const { settings, failed: settingsFailed } = useSettings();
+  const { refresh: refreshMenu } = useMenu();
   const [details, setDetails] = useState<CustomerDetails>(emptyCustomer);
   const [editing, setEditing] = useState(true); // false = show the saved address with a "Change" link
   const [notes, setNotes] = useState("");
@@ -41,10 +44,10 @@ export default function CheckoutPage() {
 
   if (cart.count === 0) {
     return (
-      <main className="mx-auto max-w-xl px-4 py-20 text-center">
-        <h1 className="text-2xl font-bold">Nothing to check out</h1>
-        <p className="mt-1 text-stone-500">Add a few dishes to your cart first.</p>
-        <Link href="/" className="mt-6 inline-block rounded-xl bg-brand px-6 py-3 font-bold text-white">
+      <main className="mx-auto max-w-xl px-4 py-16 text-center">
+        <h1 className="text-title font-bold">Nothing to check out</h1>
+        <p className="mt-1 text-stone-600">Add a few dishes to your cart first.</p>
+        <Link href="/" className="mt-5 inline-flex min-h-11 items-center rounded-xl bg-brand px-6 font-bold text-white">
           Browse menu
         </Link>
       </main>
@@ -74,7 +77,7 @@ export default function CheckoutPage() {
 
   const submit = async (ev: React.FormEvent) => {
     ev.preventDefault();
-    if (placingRef.current || shortBy > 0 || !validate()) return;
+    if (placingRef.current || !settings || shortBy > 0 || !validate()) return;
     placingRef.current = true;
     setPlacing(true);
     setSubmitError("");
@@ -101,6 +104,7 @@ export default function CheckoutPage() {
           portion: line.portion ? line.portion.toLowerCase() : null,
           quantity: line.qty,
         })),
+        expectedTotal: total, // the server refuses the order if its total differs
       });
       saveCustomer(trimmed);
       saveOrder({
@@ -118,14 +122,21 @@ export default function CheckoutPage() {
       cart.clear();
       router.replace(`/order/${id}`);
     } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
+      if (err instanceof PriceChangedError) {
+        // An offer started or ended: load the new prices and let the customer check them. The cart stays.
+        reloadSettings();
+        await refreshMenu();
+        setSubmitError(PRICE_CHANGED_MESSAGE);
+      } else {
+        setSubmitError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
+      }
       placingRef.current = false;
       setPlacing(false);
     }
   };
 
   const inputCls = (err?: string) =>
-    `mt-1 h-12 w-full rounded-xl border bg-white px-3 text-base outline-none focus:ring-2 ${
+    `mt-1 h-11 w-full rounded-lg border bg-white px-3 text-body outline-none focus:ring-2 ${
       err ? "border-red-500 focus:ring-red-200" : "border-stone-300 focus:border-brand focus:ring-brand/20"
     }`;
 
@@ -135,52 +146,63 @@ export default function CheckoutPage() {
     props: React.InputHTMLAttributes<HTMLInputElement> = {},
     hint?: string,
   ) => (
-    <label className="block">
-      <span className="text-sm font-semibold">{label}</span>
-      <input
-        value={details[key]}
-        onChange={(e) => set(key, e.target.value)}
-        className={inputCls(errors[key])}
-        aria-invalid={!!errors[key]}
-        {...props}
-      />
-      {hint && <span className="mt-1 block text-xs text-stone-500">{hint}</span>}
-      {errors[key] && <span className="mt-1 block text-sm text-red-600">{errors[key]}</span>}
-    </label>
+    <div>
+      <label className="block">
+        <span className="text-caption font-semibold">{label}</span>
+        <input
+          value={details[key]}
+          onChange={(e) => set(key, e.target.value)}
+          className={inputCls(errors[key])}
+          aria-invalid={!!errors[key]}
+          aria-describedby={[hint && `hint-${key}`, errors[key] && `err-${key}`].filter(Boolean).join(" ") || undefined}
+          {...props}
+        />
+      </label>
+      {hint && (
+        <span id={`hint-${key}`} className="mt-1 block text-caption text-stone-600">
+          {hint}
+        </span>
+      )}
+      {errors[key] && (
+        <span id={`err-${key}`} className="mt-1 block text-caption font-semibold text-red-700">
+          {errors[key]}
+        </span>
+      )}
+    </div>
   );
 
   return (
-    <main className="mx-auto max-w-xl px-4 pb-16 pt-4">
-      <Link href="/cart" className="text-sm font-semibold text-brand">
+    <main className="mx-auto max-w-xl px-4 pb-12 pt-3">
+      <Link href="/cart" className="inline-flex min-h-9 items-center text-caption font-semibold text-brand">
         ← Back to cart
       </Link>
-      <h1 className="mt-2 text-2xl font-bold">Checkout</h1>
+      <h1 className="text-title font-bold">Checkout</h1>
 
-      <form onSubmit={submit} noValidate className="mt-4 space-y-4">
-        <section className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-stone-200/70">
+      <form onSubmit={submit} noValidate className="mt-3 space-y-3">
+        <section className="rounded-xl bg-white p-3 shadow-sm ring-1 ring-stone-200/70">
           {!editing ? (
             <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0 text-sm">
-                <p className="font-semibold text-stone-500">Delivering to</p>
+              <div className="min-w-0">
+                <p className="text-caption font-semibold text-stone-600">Delivering to</p>
                 <p className="mt-1 font-bold">
                   {details.name} · +91 {details.phone}
                 </p>
                 <p className="text-stone-700">
                   Flat {details.flatNumber}, {details.tower}, {details.society}
                 </p>
-                {details.landmark && <p className="text-stone-500">Gate / landmark: {details.landmark}</p>}
+                {details.landmark && <p className="text-caption text-stone-600">Gate / landmark: {details.landmark}</p>}
               </div>
-              <button type="button" onClick={() => setEditing(true)} className="shrink-0 text-sm font-bold text-brand underline">
+              <button type="button" onClick={() => setEditing(true)} className="min-h-9 shrink-0 px-1 font-bold text-brand underline">
                 Change
               </button>
             </div>
           ) : (
-            <div className="space-y-4">
-              <h2 className="font-bold">Delivery details</h2>
+            <div className="space-y-3">
+              <h2 className="text-heading font-bold">Delivery details</h2>
               {field("name", "Name", { autoComplete: "name" })}
 
               <label className="block">
-                <span className="text-sm font-semibold">Mobile number</span>
+                <span className="text-caption font-semibold">Mobile number</span>
                 <div className="relative">
                   <span className="pointer-events-none absolute left-3 top-1/2 mt-0.5 -translate-y-1/2 text-stone-500">+91</span>
                   <input
@@ -194,7 +216,7 @@ export default function CheckoutPage() {
                     aria-invalid={!!errors.phone}
                   />
                 </div>
-                {errors.phone && <span className="mt-1 block text-sm text-red-600">{errors.phone}</span>}
+                {errors.phone && <span className="mt-1 block text-caption font-semibold text-red-700">{errors.phone}</span>}
               </label>
 
               {field("society", "Society", { placeholder: "e.g. Gaur City 2" }, "We deliver within about 3 km of Gaur City 2.")}
@@ -204,19 +226,19 @@ export default function CheckoutPage() {
               {field(
                 "landmark",
                 <>
-                  Gate / landmark <span className="font-normal text-stone-500">(optional)</span>
+                  Gate / landmark <span className="font-normal text-stone-600">(optional)</span>
                 </>,
               )}
             </div>
           )}
         </section>
 
-        <label className="block rounded-2xl bg-white p-4 shadow-sm ring-1 ring-stone-200/70">
+        <label className="block rounded-xl bg-white p-3 shadow-sm ring-1 ring-stone-200/70">
           <span className="flex items-baseline justify-between">
-            <span className="text-sm font-semibold">
-              Cooking instructions <span className="font-normal text-stone-500">(optional)</span>
+            <span className="text-caption font-semibold">
+              Cooking instructions <span className="font-normal text-stone-600">(optional)</span>
             </span>
-            <span className="text-xs tabular-nums text-stone-500">
+            <span className="text-caption tabular-nums text-stone-600">
               {notes.length}/{NOTES_MAX}
             </span>
           </span>
@@ -226,53 +248,40 @@ export default function CheckoutPage() {
             rows={2}
             maxLength={NOTES_MAX}
             placeholder="e.g. less spicy, no onion-garlic"
-            className="mt-2 w-full resize-none rounded-lg border border-stone-300 p-2.5 text-base outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+            className="mt-1.5 w-full resize-none rounded-lg border border-stone-300 p-2.5 text-body outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
           />
         </label>
 
-        <section className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-stone-200/70">
-          <dl className="space-y-2 text-sm">
-            <div className="flex justify-between">
-              <dt className="text-stone-600">Subtotal</dt>
-              <dd className="tabular-nums">{formatINR(cart.itemTotal)}</dd>
-            </div>
-            <div className="flex justify-between">
-              <dt className="text-stone-600">GST ({Math.round(GST_RATE * 100)}%)</dt>
-              <dd className="tabular-nums">{formatINR(cart.gst)}</dd>
-            </div>
-            {deliveryFee > 0 && (
-              <div className="flex justify-between">
-                <dt className="text-stone-600">Delivery fee</dt>
-                <dd className="tabular-nums">{formatINR(deliveryFee)}</dd>
-              </div>
-            )}
-            <div className="flex justify-between border-t border-dashed border-stone-300 pt-2 text-base font-bold">
-              <dt>Total</dt>
-              <dd className="tabular-nums">{formatINR(total)}</dd>
-            </div>
-          </dl>
+        <section className="rounded-xl bg-white p-3 shadow-sm ring-1 ring-stone-200/70">
+          <BillLines subtotal={cart.itemTotal} discount={cart.discount} gst={cart.gst} deliveryFee={deliveryFee} total={total} />
         </section>
 
         {shortBy > 0 && (
-          <p className="rounded-xl bg-gold/20 p-3 text-sm font-semibold text-brand-dark">
+          <p className="rounded-xl bg-gold/20 p-3 text-caption font-semibold text-brand-dark">
             Minimum order is {formatINR(settings!.min_order)}. Add {formatINR(shortBy)} more to place your order.
           </p>
         )}
 
         {submitError && (
-          <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm font-semibold text-red-700 ring-1 ring-red-200">
+          <p role="alert" className="rounded-xl bg-red-50 p-3 text-caption font-semibold text-red-700 ring-1 ring-red-200">
             {submitError}
+          </p>
+        )}
+
+        {settingsFailed && !settings && (
+          <p role="alert" className="rounded-xl bg-red-50 p-3 text-caption font-semibold text-red-700 ring-1 ring-red-200">
+            Couldn&apos;t load the delivery charges. Please check your connection and refresh the page.
           </p>
         )}
 
         <button
           type="submit"
-          disabled={placing || shortBy > 0}
-          className="w-full rounded-xl bg-brand py-4 text-lg font-bold text-white shadow-lg hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-70"
+          disabled={placing || !settings || shortBy > 0}
+          className="min-h-11 w-full rounded-xl bg-brand px-4 py-2.5 font-bold text-white shadow-lg hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-70"
         >
-          {placing ? "Placing order..." : `Place order · Pay ${formatINR(total)} on delivery`}
+          {placing ? "Placing order..." : !settings ? "Loading prices…" : `Place order · Pay ${formatINR(total)} on delivery`}
         </button>
-        <p className="text-center text-xs text-stone-500">Pay on delivery with cash or UPI.</p>
+        <p className="text-center text-caption text-stone-600">Pay on delivery with cash or UPI.</p>
       </form>
     </main>
   );
