@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { VegMark } from "@/components/Badges";
 import BillLines from "@/components/BillLines";
+import ErrorBoundary from "@/components/ErrorBoundary";
 import { formatINR } from "@/lib/cart";
 import { getOrderStatus, getSavedOrder, type OrderStatus, type SavedOrder } from "@/lib/orders";
 
@@ -61,9 +62,7 @@ function StatusMessage({ status }: { status: OrderStatus }) {
           <div className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-stone-600 text-2xl" aria-hidden>
             ✕
           </div>
-          <p className="mt-2 text-heading font-bold">
-            This order was cancelled{status.reject_reason ? `: ${status.reject_reason}` : "."}
-          </p>
+          <p className="mt-2 text-heading font-bold">This order was cancelled{status.reject_reason ? `: ${status.reject_reason}` : "."}</p>
         </>
       );
     default:
@@ -140,41 +139,46 @@ export default function OrderStatusPage() {
         </p>
       )}
 
-      <section className="mt-3 rounded-xl bg-white p-3 shadow-sm ring-1 ring-stone-200/70">
-        <h2 className="text-heading font-bold">Your order</h2>
-        {saved ? (
-          <ul className="mt-2 space-y-1.5">
-            {saved.items.map((i, idx) => (
-              <li key={idx} className="flex items-start gap-2">
-                <VegMark veg={i.veg} className="mt-0.5" />
-                <span className="flex-1">
-                  {i.qty} × {i.name}
-                  {i.portion && <span className="text-stone-600"> ({i.portion})</span>}
-                </span>
-                <span className="tabular-nums">{formatINR(i.total)}</span>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="mt-2 text-caption text-stone-600">Dish details are only saved on the phone that placed the order.</p>
-        )}
+      <ErrorBoundary name="order details" compact>
+        <section className="mt-3 rounded-xl bg-white p-3 shadow-sm ring-1 ring-stone-200/70">
+          <h2 className="text-heading font-bold">Your order</h2>
+          {saved ? (
+            <ul className="mt-2 space-y-1.5">
+              {saved.items.map((i, idx) => (
+                <li key={idx} className="flex items-start gap-2">
+                  <VegMark veg={i.veg} className="mt-0.5" />
+                  <span className="flex-1">
+                    {i.qty} × {i.name}
+                    {i.portion && <span className="text-stone-600"> ({i.portion})</span>}
+                  </span>
+                  <span className="tabular-nums">{formatINR(i.total)}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-2 text-caption text-stone-600">Dish details are only saved on the phone that placed the order.</p>
+          )}
 
-        {status?.notes && <p className="mt-3 rounded-lg bg-cream p-2 text-caption">Cooking instructions: “{status.notes}”</p>}
+          {status?.notes && <p className="mt-3 rounded-lg bg-cream p-2 text-caption">Cooking instructions: “{status.notes}”</p>}
 
-        {status && (
-          <div className="mt-3 border-t border-dashed border-stone-300 pt-1">
-            <BillLines
-              subtotal={Number(status.subtotal)}
-              discount={Number(status.discount ?? 0)}
-              gst={Number(status.gst)}
-              deliveryFee={Number(status.delivery_fee)}
-              total={Number(status.total)}
-            />
-          </div>
-        )}
-      </section>
+          {status && (
+            <div className="mt-3 border-t border-dashed border-stone-300 pt-1">
+              <BillLines
+                subtotal={Number(status.subtotal)}
+                discount={Number(status.discount ?? 0)}
+                gst={Number(status.gst)}
+                deliveryFee={Number(status.delivery_fee)}
+                total={Number(status.total)}
+              />
+            </div>
+          )}
+        </section>
+      </ErrorBoundary>
 
-      <Link href="/" className="mt-4 flex min-h-11 items-center justify-center rounded-xl bg-brand text-center font-bold text-white shadow hover:bg-brand-dark">
+      <Link
+        href="/"
+        className="mt-4 flex min-h-11 items-center justify-center rounded-xl bg-brand text-center font-bold text-white shadow hover:bg-brand-dark"
+      >
         Back to menu
       </Link>
     </main>

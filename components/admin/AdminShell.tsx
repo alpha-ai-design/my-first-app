@@ -5,15 +5,11 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import PushSettings from "@/components/admin/PushSettings";
+import ErrorBoundary from "@/components/ErrorBoundary";
+import PageBoundary from "@/components/PageBoundary";
 import { playChime, unlockAudio } from "@/lib/admin/chime";
 import { minutesSince } from "@/lib/admin/ist";
-import {
-  fetchAcceptedToday,
-  fetchDefaultPrepMinutes,
-  fetchPendingOrders,
-  fetchVegMap,
-  type AdminOrder,
-} from "@/lib/admin/orders";
+import { fetchAcceptedToday, fetchDefaultPrepMinutes, fetchPendingOrders, fetchVegMap, type AdminOrder } from "@/lib/admin/orders";
 import { supabase } from "@/lib/supabase";
 
 const CHIME_EVERY_MS = 10_000;
@@ -104,11 +100,15 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
       </header>
 
       {started ? (
-        <Shift>{children}</Shift>
+        <Shift>
+          <PageBoundary name="kitchen page">{children}</PageBoundary>
+        </Shift>
       ) : pathname === "/admin/settings" ? (
-        children
+        <PageBoundary name="settings">{children}</PageBoundary>
       ) : (
-        <StartShift onStart={startShift} />
+        <PageBoundary name="start shift">
+          <StartShift onStart={startShift} />
+        </PageBoundary>
       )}
     </div>
   );
@@ -245,49 +245,53 @@ function Shift({ children }: { children: React.ReactNode }) {
 
   return (
     <ShiftContext.Provider value={value}>
-      {/* Bottom tab bar on phones; a top tab row under the header on screens 1024px and wider. */}
-      <nav
-        className="fixed inset-x-0 bottom-0 z-40 border-t border-stone-300 bg-white pb-[env(safe-area-inset-bottom)] lg:sticky lg:top-12 lg:bottom-auto lg:border-b lg:border-t-0 lg:pb-0"
-        aria-label="Kitchen sections"
-      >
-        <ul className="mx-auto grid max-w-2xl grid-cols-4 lg:flex lg:max-w-[1200px] lg:gap-1 lg:px-4">
-          {TABS.map((tab) => {
-            const active = pathname.startsWith(tab.href);
-            const badge = tab.href === "/admin/orders" && pending.length > 0 ? pending.length : 0;
-            return (
-              <li key={tab.href}>
-                <Link
-                  href={tab.href}
-                  aria-current={active ? "page" : undefined}
-                  className={`relative flex min-h-14 flex-col items-center justify-center text-caption font-bold lg:min-h-10 lg:flex-row lg:gap-1.5 lg:rounded-lg lg:px-4 lg:text-body ${
-                    active ? "bg-brand/10 text-brand lg:bg-brand lg:text-white" : "text-stone-700 lg:hover:bg-stone-100"
-                  }`}
-                >
-                  <span className="text-xl lg:text-base" aria-hidden>
-                    {tab.icon}
-                  </span>
-                  {tab.label}
-                  {badge > 0 && (
-                    <span className="absolute right-3 top-1 grid h-5 min-w-5 place-items-center rounded-full bg-brand px-1 text-[12px] text-white ring-2 ring-white lg:static lg:ring-0">
-                      {badge}
-                      <span className="sr-only"> new orders</span>
+      <ErrorBoundary name="kitchen tabs" compact>
+        {/* Bottom tab bar on phones; a top tab row under the header on screens 1024px and wider. */}
+        <nav
+          className="fixed inset-x-0 bottom-0 z-40 border-t border-stone-300 bg-white pb-[env(safe-area-inset-bottom)] lg:sticky lg:top-12 lg:bottom-auto lg:border-b lg:border-t-0 lg:pb-0"
+          aria-label="Kitchen sections"
+        >
+          <ul className="mx-auto grid max-w-2xl grid-cols-4 lg:flex lg:max-w-[1200px] lg:gap-1 lg:px-4">
+            {TABS.map((tab) => {
+              const active = pathname.startsWith(tab.href);
+              const badge = tab.href === "/admin/orders" && pending.length > 0 ? pending.length : 0;
+              return (
+                <li key={tab.href}>
+                  <Link
+                    href={tab.href}
+                    aria-current={active ? "page" : undefined}
+                    className={`relative flex min-h-14 flex-col items-center justify-center text-caption font-bold lg:min-h-10 lg:flex-row lg:gap-1.5 lg:rounded-lg lg:px-4 lg:text-body ${
+                      active ? "bg-brand/10 text-brand lg:bg-brand lg:text-white" : "text-stone-700 lg:hover:bg-stone-100"
+                    }`}
+                  >
+                    <span className="text-xl lg:text-base" aria-hidden>
+                      {tab.icon}
                     </span>
-                  )}
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
-      </nav>
+                    {tab.label}
+                    {badge > 0 && (
+                      <span className="absolute right-3 top-1 grid h-5 min-w-5 place-items-center rounded-full bg-brand px-1 text-[12px] text-white ring-2 ring-white lg:static lg:ring-0">
+                        {badge}
+                        <span className="sr-only"> new orders</span>
+                      </span>
+                    )}
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </nav>
+      </ErrorBoundary>
 
       {children}
 
       {toast && (
-        <div role="status" className="fixed inset-x-3 bottom-20 z-50 mx-auto max-w-md rounded-xl bg-ink px-4 py-2.5 text-center font-semibold text-white shadow-2xl lg:bottom-6">
+        <div
+          role="status"
+          className="fixed inset-x-3 bottom-20 z-50 mx-auto max-w-md rounded-xl bg-ink px-4 py-2.5 text-center font-semibold text-white shadow-2xl lg:bottom-6"
+        >
           {toast}
         </div>
       )}
-
     </ShiftContext.Provider>
   );
 }

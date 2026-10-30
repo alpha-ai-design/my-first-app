@@ -10,6 +10,7 @@ Customers can browse the menu, filter veg-only, search dishes, pick Half/Full po
 npm install
 npm run dev      # open http://localhost:3000
 npm run build    # production build (must pass before deploying)
+npm run lint     # type check + React hook rules (catches "Rendered more hooks" crashes before they ship)
 ```
 
 ## Supabase

@@ -1,5 +1,6 @@
 "use client";
 
+import ErrorBoundary from "@/components/ErrorBoundary";
 import { useCallback, useEffect, useState } from "react";
 import { useShift } from "@/components/admin/AdminShell";
 import OfferForm from "@/components/admin/OfferForm";
@@ -60,7 +61,11 @@ export default function AdminOffersPage() {
           const list = offers
             .filter((o) => phaseOf(o, Date.now()) === phase) // exact time: an offer saved a moment ago is already active
             .sort((a, b) =>
-              phase === "scheduled" ? a.starts_at.localeCompare(b.starts_at) : phase === "active" ? a.ends_at.localeCompare(b.ends_at) : b.ends_at.localeCompare(a.ends_at),
+              phase === "scheduled"
+                ? a.starts_at.localeCompare(b.starts_at)
+                : phase === "active"
+                  ? a.ends_at.localeCompare(b.ends_at)
+                  : b.ends_at.localeCompare(a.ends_at),
             )
             .slice(0, phase === "ended" ? 30 : undefined);
           return (
@@ -73,17 +78,18 @@ export default function AdminOffersPage() {
               ) : (
                 <div className="grid items-start gap-3 md:grid-cols-2 xl:grid-cols-3">
                   {list.map((o) => (
-                    <OfferCard
-                      key={o.id}
-                      offer={o}
-                      phase={phase}
-                      dishes={dishes}
-                      now={now}
-                      onStopped={async () => {
-                        await refresh();
-                        notify(`“${o.title || offerTitle(o, dishes)}” stopped. Customers see normal prices now.`);
-                      }}
-                    />
+                    <ErrorBoundary key={o.id} name={`offer ${o.id}`} compact>
+                      <OfferCard
+                        offer={o}
+                        phase={phase}
+                        dishes={dishes}
+                        now={now}
+                        onStopped={async () => {
+                          await refresh();
+                          notify(`“${o.title || offerTitle(o, dishes)}” stopped. Customers see normal prices now.`);
+                        }}
+                      />
+                    </ErrorBoundary>
                   ))}
                 </div>
               )}
@@ -184,10 +190,20 @@ function OfferCard({
               {phase === "active" ? "Stop this offer now? Customers will see normal prices straight away." : "Cancel this offer? It won't start."}
             </p>
             <div className="mt-2 grid grid-cols-2 gap-2">
-              <button type="button" disabled={busy} onClick={stop} className="min-h-10 rounded-lg bg-red-700 font-bold text-white disabled:opacity-50">
+              <button
+                type="button"
+                disabled={busy}
+                onClick={stop}
+                className="min-h-10 rounded-lg bg-red-700 font-bold text-white disabled:opacity-50"
+              >
                 {busy ? "Stopping…" : phase === "active" ? "Yes, stop" : "Yes, cancel"}
               </button>
-              <button type="button" disabled={busy} onClick={() => setConfirming(false)} className="min-h-10 rounded-lg border-2 border-stone-300 bg-white font-bold">
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => setConfirming(false)}
+                className="min-h-10 rounded-lg border-2 border-stone-300 bg-white font-bold"
+              >
                 Keep it
               </button>
             </div>

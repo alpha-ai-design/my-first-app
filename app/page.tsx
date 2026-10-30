@@ -10,6 +10,7 @@ import Link from "next/link";
 import MenuItemCard from "@/components/MenuItemCard";
 import PortionSheet from "@/components/PortionSheet";
 import CartBar from "@/components/CartBar";
+import ErrorBoundary from "@/components/ErrorBoundary";
 
 export default function MenuPage() {
   const { add } = useCart();
@@ -34,9 +35,7 @@ export default function MenuPage() {
     return categories
       .map((cat) => ({
         ...cat,
-        items: menu.filter(
-          (m) => m.category === cat.id && (!vegOnly || m.veg) && (!q || m.name.toLowerCase().includes(q)),
-        ),
+        items: menu.filter((m) => m.category === cat.id && (!vegOnly || m.veg) && (!q || m.name.toLowerCase().includes(q))),
       }))
       .filter((s) => s.items.length > 0);
   }, [menu, query, vegOnly]);
@@ -79,9 +78,7 @@ export default function MenuPage() {
           <h1 className="mt-1 font-display text-title">
             Chinese, the <span className="text-gold">Indian</span> way.
           </h1>
-          <p className="mt-1 max-w-md text-caption text-white/80">
-            Delivered hot to your door. Pay on delivery with cash or UPI.
-          </p>
+          <p className="mt-1 max-w-md text-caption text-white/80">Delivered hot to your door. Pay on delivery with cash or UPI.</p>
           {recentOrder && (
             <Link
               href={`/order/${recentOrder.id}`}
@@ -94,12 +91,14 @@ export default function MenuPage() {
       </section>
 
       {/* Order-level offers, e.g. "₹50 off on orders above ₹499" */}
-      {orderOffers.length > 0 && (
-        <p className="bg-gold px-4 py-2 text-center text-caption font-bold text-ink">
-          <span aria-hidden>🏷️ </span>
-          {orderOffers.map(orderOfferText).join(" · ")}
-        </p>
-      )}
+      <ErrorBoundary name="offer banner" compact>
+        {orderOffers.length > 0 && (
+          <p className="bg-gold px-4 py-2 text-center text-caption font-bold text-ink">
+            <span aria-hidden>🏷️ </span>
+            {orderOffers.map(orderOfferText).join(" · ")}
+          </p>
+        )}
+      </ErrorBoundary>
 
       {/* Sticky tools: search, veg toggle, category tabs (sits under the 56px header) */}
       <div className="sticky top-14 z-20 border-b border-stone-200 bg-cream/95 backdrop-blur">
@@ -107,7 +106,13 @@ export default function MenuPage() {
           <div className="flex items-center gap-2">
             <label className="relative flex-1">
               <span className="sr-only">Search dishes</span>
-              <svg viewBox="0 0 24 24" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-400" fill="none" stroke="currentColor" strokeWidth={2.5}>
+              <svg
+                viewBox="0 0 24 24"
+                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-400"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2.5}
+              >
                 <circle cx="11" cy="11" r="7" />
                 <path d="m20 20-3.5-3.5" strokeLinecap="round" />
               </svg>
@@ -187,33 +192,39 @@ export default function MenuPage() {
         )}
 
         {sections.map((s) => (
-          <section key={s.id} id={s.id} className="scroll-mt-[170px] pt-5">
-            <h2 className="mb-2 flex items-center gap-2 font-display text-heading uppercase tracking-wide">
-              <span className="h-5 w-1 rounded-full bg-brand" aria-hidden />
-              {s.name}
-              <span className="font-sans text-caption font-normal normal-case text-stone-600">({s.items.length})</span>
-            </h2>
-            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-              {s.items.map((item) => (
-                <MenuItemCard key={item.id} item={item} onChoosePortion={setPortionItem} />
-              ))}
-            </div>
-          </section>
+          <ErrorBoundary key={s.id} name={`menu section ${s.id}`} compact>
+            <section id={s.id} className="scroll-mt-[170px] pt-5">
+              <h2 className="mb-2 flex items-center gap-2 font-display text-heading uppercase tracking-wide">
+                <span className="h-5 w-1 rounded-full bg-brand" aria-hidden />
+                {s.name}
+                <span className="font-sans text-caption font-normal normal-case text-stone-600">({s.items.length})</span>
+              </h2>
+              <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                {s.items.map((item) => (
+                  <MenuItemCard key={item.id} item={item} onChoosePortion={setPortionItem} />
+                ))}
+              </div>
+            </section>
+          </ErrorBoundary>
         ))}
       </div>
 
       {portionItem && (
-        <PortionSheet
-          item={portionItem}
-          onClose={() => setPortionItem(null)}
-          onConfirm={(portion) => {
-            add(portionItem.id, portion);
-            setPortionItem(null);
-          }}
-        />
+        <ErrorBoundary name="portion picker" compact>
+          <PortionSheet
+            item={portionItem}
+            onClose={() => setPortionItem(null)}
+            onConfirm={(portion) => {
+              add(portionItem.id, portion);
+              setPortionItem(null);
+            }}
+          />
+        </ErrorBoundary>
       )}
 
-      <CartBar />
+      <ErrorBoundary name="cart bar" compact>
+        <CartBar />
+      </ErrorBoundary>
     </main>
   );
 }

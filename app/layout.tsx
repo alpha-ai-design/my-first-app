@@ -3,6 +3,7 @@ import "./globals.css";
 import { CartProvider } from "@/lib/cart";
 import { MenuProvider } from "@/lib/menu";
 import Header from "@/components/Header";
+import PageBoundary from "@/components/PageBoundary";
 
 export const metadata: Metadata = {
   title: "Xu Noodles — Indo-Chinese Food Delivery",
@@ -21,8 +22,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-dvh antialiased">
         <MenuProvider>
           <CartProvider>
-            <Header />
-            {children}
+            <PageBoundary name="header" compact>
+              <Header />
+            </PageBoundary>
+            <PageBoundary name="page">{children}</PageBoundary>
           </CartProvider>
         </MenuProvider>
       </body>

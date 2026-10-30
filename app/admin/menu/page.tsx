@@ -1,5 +1,6 @@
 "use client";
 
+import ErrorBoundary from "@/components/ErrorBoundary";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useShift } from "@/components/admin/AdminShell";
 import DishForm, { categoryId, type FormStart } from "@/components/admin/DishForm";
@@ -100,8 +101,7 @@ export default function AdminMenuPage() {
     });
   };
 
-  const markAvailable = (dish: Dish) =>
-    change(dish, () => setSoldOutUntil(dish.id, null), { text: `${dish.name} is available again` });
+  const markAvailable = (dish: Dish) => change(dish, () => setSoldOutUntil(dish.id, null), { text: `${dish.name} is available again` });
 
   const active = (dishes ?? []).filter((d) => !d.is_archived);
   const removed = (dishes ?? []).filter((d) => d.is_archived);
@@ -121,7 +121,14 @@ export default function AdminMenuPage() {
 
       <label className="relative mt-2 block max-w-xl">
         <span className="sr-only">Search dishes</span>
-        <svg viewBox="0 0 24 24" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-400" fill="none" stroke="currentColor" strokeWidth={2.5} aria-hidden>
+        <svg
+          viewBox="0 0 24 24"
+          className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-400"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={2.5}
+          aria-hidden
+        >
           <circle cx="11" cy="11" r="7" />
           <path d="m20 20-3.5-3.5" strokeLinecap="round" />
         </svg>
@@ -161,15 +168,16 @@ export default function AdminMenuPage() {
             </div>
             <ul className="grid items-start gap-2 md:grid-cols-2 xl:grid-cols-3">
               {g.dishes.map((d) => (
-                <DishRow
-                  key={d.id}
-                  dish={d}
-                  now={now}
-                  busy={busyId === d.id}
-                  onEdit={() => setForm({ mode: "edit", dish: d })}
-                  onSoldOut={(indefinitely) => markSoldOut(d, indefinitely)}
-                  onAvailable={() => markAvailable(d)}
-                />
+                <ErrorBoundary key={d.id} name={`dish ${d.id}`} compact>
+                  <DishRow
+                    dish={d}
+                    now={now}
+                    busy={busyId === d.id}
+                    onEdit={() => setForm({ mode: "edit", dish: d })}
+                    onSoldOut={(indefinitely) => markSoldOut(d, indefinitely)}
+                    onAvailable={() => markAvailable(d)}
+                  />
+                </ErrorBoundary>
               ))}
             </ul>
           </section>
@@ -222,12 +230,19 @@ export default function AdminMenuPage() {
       )}
 
       {removing && (
-        <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/60 p-3 sm:items-center" role="alertdialog" aria-modal="true" aria-labelledby="remove-title">
+        <div
+          className="fixed inset-0 z-[60] flex items-end justify-center bg-black/60 p-3 sm:items-center"
+          role="alertdialog"
+          aria-modal="true"
+          aria-labelledby="remove-title"
+        >
           <div className="w-full max-w-md rounded-xl bg-white p-4">
             <h2 id="remove-title" className="text-heading font-bold">
               Remove {removing.name} from the menu?
             </h2>
-            <p className="mt-2 text-stone-700">Customers won&apos;t see it any more. Past orders are not affected. You can restore it later from “Removed dishes”.</p>
+            <p className="mt-2 text-stone-700">
+              Customers won&apos;t see it any more. Past orders are not affected. You can restore it later from “Removed dishes”.
+            </p>
             <div className="mt-4 grid gap-2">
               <button
                 type="button"
@@ -251,7 +266,10 @@ export default function AdminMenuPage() {
       )}
 
       {toast && (
-        <div role="status" className="fixed inset-x-3 bottom-24 z-[70] mx-auto flex max-w-md items-center justify-between gap-3 rounded-xl bg-ink py-2 pl-4 pr-2 text-white shadow-2xl">
+        <div
+          role="status"
+          className="fixed inset-x-3 bottom-24 z-[70] mx-auto flex max-w-md items-center justify-between gap-3 rounded-xl bg-ink py-2 pl-4 pr-2 text-white shadow-2xl"
+        >
           <span className="font-bold">{toast.text}</span>
           {toast.undo && (
             <button

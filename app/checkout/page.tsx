@@ -1,5 +1,6 @@
 "use client";
 
+import ErrorBoundary from "@/components/ErrorBoundary";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -140,12 +141,7 @@ export default function CheckoutPage() {
       err ? "border-red-500 focus:ring-red-200" : "border-stone-300 focus:border-brand focus:ring-brand/20"
     }`;
 
-  const field = (
-    key: keyof CustomerDetails,
-    label: React.ReactNode,
-    props: React.InputHTMLAttributes<HTMLInputElement> = {},
-    hint?: string,
-  ) => (
+  const field = (key: keyof CustomerDetails, label: React.ReactNode, props: React.InputHTMLAttributes<HTMLInputElement> = {}, hint?: string) => (
     <div>
       <label className="block">
         <span className="text-caption font-semibold">{label}</span>
@@ -253,7 +249,9 @@ export default function CheckoutPage() {
         </label>
 
         <section className="rounded-xl bg-white p-3 shadow-sm ring-1 ring-stone-200/70">
-          <BillLines subtotal={cart.itemTotal} discount={cart.discount} gst={cart.gst} deliveryFee={deliveryFee} total={total} />
+          <ErrorBoundary name="checkout bill" compact>
+            <BillLines subtotal={cart.itemTotal} discount={cart.discount} gst={cart.gst} deliveryFee={deliveryFee} total={total} />
+          </ErrorBoundary>
         </section>
 
         {shortBy > 0 && (

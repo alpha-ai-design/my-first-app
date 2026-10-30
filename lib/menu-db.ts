@@ -87,5 +87,6 @@ export async function fetchOffers(): Promise<Offer[]> {
     console.error("Could not load offers", error);
     return [];
   }
+  // Same values place_order sees, so the customer's total always matches the server's.
   return (data ?? []).map((o) => ({ ...o, id: String(o.id), value: Number(o.value), min_order: Number(o.min_order ?? 0) })) as Offer[];
 }

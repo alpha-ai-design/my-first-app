@@ -1,5 +1,6 @@
 "use client";
 
+import ErrorBoundary from "@/components/ErrorBoundary";
 import { useState } from "react";
 import { isUrgent, useShift } from "@/components/admin/AdminShell";
 import { VegMark } from "@/components/Badges";
@@ -46,7 +47,9 @@ export default function AdminOrdersPage() {
         ) : (
           <div className="grid items-start gap-3 md:grid-cols-2 xl:grid-cols-3">
             {pending.map((o) => (
-              <NewOrderCard key={o.id} order={o} />
+              <ErrorBoundary key={o.id} name={`order ${o.order_number}`} compact>
+                <NewOrderCard order={o} />
+              </ErrorBoundary>
             ))}
           </div>
         )}
@@ -61,7 +64,9 @@ export default function AdminOrdersPage() {
         ) : (
           <div className="grid items-start gap-3 md:grid-cols-2 xl:grid-cols-3">
             {accepted.map((o) => (
-              <AcceptedOrderCard key={o.id} order={o} />
+              <ErrorBoundary key={o.id} name={`order ${o.order_number}`} compact>
+                <AcceptedOrderCard order={o} />
+              </ErrorBoundary>
             ))}
           </div>
         )}
@@ -188,7 +193,12 @@ function NewOrderCard({ order }: { order: AdminOrder }) {
       <div className="mt-3 border-t border-stone-200 pt-3">
         {mode === "main" && (
           <div className="space-y-2">
-            <button type="button" disabled={busy} onClick={() => accept(defaultPrep)} className={`${btn} min-h-11 w-full bg-green-700 text-heading text-white`}>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => accept(defaultPrep)}
+              className={`${btn} min-h-11 w-full bg-green-700 text-heading text-white`}
+            >
               {busy ? "Saving…" : `Accept · ${defaultPrep} min`}
             </button>
             <div className="grid grid-cols-3 gap-2" role="group" aria-label="Accept with a different prep time">
@@ -198,7 +208,12 @@ function NewOrderCard({ order }: { order: AdminOrder }) {
                 </button>
               ))}
             </div>
-            <button type="button" disabled={busy} onClick={() => setMode("reject")} className={`${btn} w-full border-2 border-red-700 bg-white text-red-700`}>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => setMode("reject")}
+              className={`${btn} w-full border-2 border-red-700 bg-white text-red-700`}
+            >
               Reject
             </button>
           </div>

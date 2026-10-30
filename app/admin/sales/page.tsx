@@ -1,5 +1,6 @@
 "use client";
 
+import ErrorBoundary from "@/components/ErrorBoundary";
 import { useCallback, useEffect, useState } from "react";
 import { formatTimeIST } from "@/lib/admin/ist";
 import { offerTitle } from "@/lib/admin/offers";
@@ -149,110 +150,130 @@ export default function AdminSalesPage() {
 
       {cur && prev && !empty && (
         <>
-          <div className="mt-3 grid gap-3 md:grid-cols-3">
-            <MetricCard title="Net sales" value={formatINR(cur.net_sales)} current={cur.net_sales} previous={prev.net_sales} prevOrders={prev.order_count} label={label}>
-              <p className="mt-1.5 border-t border-stone-200 pt-1.5 text-caption text-stone-700">
-                GST collected {formatINR(cur.gst_collected)} (set aside) · Delivery fees {formatINR(cur.delivery_fees)}
-              </p>
-            </MetricCard>
-            <MetricCard title="Orders" value={String(cur.order_count)} current={cur.order_count} previous={prev.order_count} prevOrders={prev.order_count} label={label} />
-            <MetricCard
-              title="Average order value"
-              value={formatINR(cur.average_order_value)}
-              current={cur.average_order_value}
-              previous={prev.average_order_value}
-              prevOrders={prev.order_count}
-              label={label}
-            />
-          </div>
+          <ErrorBoundary name="sales cards" compact>
+            <div className="mt-3 grid gap-3 md:grid-cols-3">
+              <MetricCard
+                title="Net sales"
+                value={formatINR(cur.net_sales)}
+                current={cur.net_sales}
+                previous={prev.net_sales}
+                prevOrders={prev.order_count}
+                label={label}
+              >
+                <p className="mt-1.5 border-t border-stone-200 pt-1.5 text-caption text-stone-700">
+                  GST collected {formatINR(cur.gst_collected)} (set aside) · Delivery fees {formatINR(cur.delivery_fees)}
+                </p>
+              </MetricCard>
+              <MetricCard
+                title="Orders"
+                value={String(cur.order_count)}
+                current={cur.order_count}
+                previous={prev.order_count}
+                prevOrders={prev.order_count}
+                label={label}
+              />
+              <MetricCard
+                title="Average order value"
+                value={formatINR(cur.average_order_value)}
+                current={cur.average_order_value}
+                previous={prev.average_order_value}
+                prevOrders={prev.order_count}
+                label={label}
+              />
+            </div>
+          </ErrorBoundary>
           <p className="mt-1.5 text-caption text-stone-600">Accepted orders only. Net sales exclude GST and delivery fees, after discounts.</p>
 
-          <div className="mt-3 grid items-start gap-3 md:grid-cols-2">
-            <Panel title="Top 5 dishes">
-              {cur.top_dishes.length === 0 ? (
-                <p className="text-stone-600">No dishes sold yet.</p>
-              ) : (
-                <ol className="space-y-1">
-                  {cur.top_dishes.map((d, i) => (
-                    <li key={d.name} className="flex justify-between gap-2">
-                      <span>
-                        <span className="font-semibold text-stone-600">{i + 1}.</span> {d.name}
-                      </span>
-                      <span className="font-semibold tabular-nums">× {d.quantity}</span>
-                    </li>
-                  ))}
-                </ol>
-              )}
-            </Panel>
-
-            <Panel title="Missed sales">
-              {missed.length === 0 ? (
-                <p className="text-stone-600">No rejected or cancelled orders. 🎉</p>
-              ) : (
-                <table className="w-full">
-                  <thead className="sr-only">
-                    <tr>
-                      <th>Reason</th>
-                      <th>Orders</th>
-                      <th>Value</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-stone-100">
-                    {missed.map((m) => (
-                      <tr key={`${m.status}-${m.reason}`}>
-                        <td className="py-1 pr-2 align-top">
-                          {m.reason}
-                          <span className="ml-1.5 rounded bg-stone-200 px-1.5 text-[12px] font-semibold text-stone-800">{m.status === "rejected" ? "Rejected" : "Cancelled"}</span>
-                        </td>
-                        <td className="whitespace-nowrap py-1 pr-2 text-right align-top tabular-nums">
-                          {m.count} {m.count === 1 ? "order" : "orders"}
-                        </td>
-                        <td className="whitespace-nowrap py-1 text-right align-top font-semibold tabular-nums">{formatINR(m.value)}</td>
-                      </tr>
+          <ErrorBoundary name="sales details" compact>
+            <div className="mt-3 grid items-start gap-3 md:grid-cols-2">
+              <Panel title="Top 5 dishes">
+                {cur.top_dishes.length === 0 ? (
+                  <p className="text-stone-600">No dishes sold yet.</p>
+                ) : (
+                  <ol className="space-y-1">
+                    {cur.top_dishes.map((d, i) => (
+                      <li key={d.name} className="flex justify-between gap-2">
+                        <span>
+                          <span className="font-semibold text-stone-600">{i + 1}.</span> {d.name}
+                        </span>
+                        <span className="font-semibold tabular-nums">× {d.quantity}</span>
+                      </li>
                     ))}
-                  </tbody>
-                </table>
-              )}
-            </Panel>
+                  </ol>
+                )}
+              </Panel>
 
-            <Panel title="Offer results">
-              {cur.offers.length === 0 ? (
-                <p className="text-stone-600">No offers were used.</p>
-              ) : (
-                <table className="w-full">
-                  <thead>
-                    <tr className="text-left text-caption text-stone-600">
-                      <th className="pb-1 font-semibold">Offer</th>
-                      <th className="pb-1 text-right font-semibold">Orders</th>
-                      <th className="pb-1 text-right font-semibold">Discount given</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-stone-100">
-                    {cur.offers.map((o) => (
-                      <tr key={o.offer_id}>
-                        <td className="py-1 pr-2">{o.title || offerTitle({ ...o, min_order: Number(o.min_order) }, [])}</td>
-                        <td className="py-1 pr-2 text-right tabular-nums">{o.orders}</td>
-                        <td className="py-1 text-right font-semibold tabular-nums">{formatINR(o.discount)}</td>
+              <Panel title="Missed sales">
+                {missed.length === 0 ? (
+                  <p className="text-stone-600">No rejected or cancelled orders. 🎉</p>
+                ) : (
+                  <table className="w-full">
+                    <thead className="sr-only">
+                      <tr>
+                        <th>Reason</th>
+                        <th>Orders</th>
+                        <th>Value</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </Panel>
+                    </thead>
+                    <tbody className="divide-y divide-stone-100">
+                      {missed.map((m) => (
+                        <tr key={`${m.status}-${m.reason}`}>
+                          <td className="py-1 pr-2 align-top">
+                            {m.reason}
+                            <span className="ml-1.5 rounded bg-stone-200 px-1.5 text-[12px] font-semibold text-stone-800">
+                              {m.status === "rejected" ? "Rejected" : "Cancelled"}
+                            </span>
+                          </td>
+                          <td className="whitespace-nowrap py-1 pr-2 text-right align-top tabular-nums">
+                            {m.count} {m.count === 1 ? "order" : "orders"}
+                          </td>
+                          <td className="whitespace-nowrap py-1 text-right align-top font-semibold tabular-nums">{formatINR(m.value)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </Panel>
 
-            <Panel title="No orders this period">
-              {cur.unsold_dishes.length === 0 ? (
-                <p className="text-stone-600">Every dish on the menu sold at least once.</p>
-              ) : (
-                <>
-                  <p className="text-caption text-stone-600">
-                    {cur.unsold_dishes.length} {cur.unsold_dishes.length === 1 ? "dish" : "dishes"} on the menu had no accepted orders.
-                  </p>
-                  <p className="mt-1 leading-relaxed">{cur.unsold_dishes.join(" · ")}</p>
-                </>
-              )}
-            </Panel>
-          </div>
+              <Panel title="Offer results">
+                {cur.offers.length === 0 ? (
+                  <p className="text-stone-600">No offers were used.</p>
+                ) : (
+                  <table className="w-full">
+                    <thead>
+                      <tr className="text-left text-caption text-stone-600">
+                        <th className="pb-1 font-semibold">Offer</th>
+                        <th className="pb-1 text-right font-semibold">Orders</th>
+                        <th className="pb-1 text-right font-semibold">Discount given</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-stone-100">
+                      {cur.offers.map((o) => (
+                        <tr key={o.offer_id}>
+                          <td className="py-1 pr-2">{o.title || offerTitle({ ...o, min_order: Number(o.min_order) }, [])}</td>
+                          <td className="py-1 pr-2 text-right tabular-nums">{o.orders}</td>
+                          <td className="py-1 text-right font-semibold tabular-nums">{formatINR(o.discount)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </Panel>
+
+              <Panel title="No orders this period">
+                {cur.unsold_dishes.length === 0 ? (
+                  <p className="text-stone-600">Every dish on the menu sold at least once.</p>
+                ) : (
+                  <>
+                    <p className="text-caption text-stone-600">
+                      {cur.unsold_dishes.length} {cur.unsold_dishes.length === 1 ? "dish" : "dishes"} on the menu had no accepted orders.
+                    </p>
+                    <p className="mt-1 leading-relaxed">{cur.unsold_dishes.join(" · ")}</p>
+                  </>
+                )}
+              </Panel>
+            </div>
+          </ErrorBoundary>
         </>
       )}
     </main>

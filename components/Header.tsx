@@ -6,9 +6,11 @@ import Logo from "./Logo";
 import { useCart } from "@/lib/cart";
 
 export default function Header() {
+  // All hooks first, unconditionally, in the same order on every render.
   const { count, hydrated } = useCart();
+  const pathname = usePathname() ?? "";
   // The kitchen screens under /admin have their own header.
-  if (usePathname().startsWith("/admin")) return null;
+  if (pathname.startsWith("/admin")) return null;
   return (
     <header className="sticky top-0 z-30 bg-ink border-b-2 border-gold/60">
       <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-4">

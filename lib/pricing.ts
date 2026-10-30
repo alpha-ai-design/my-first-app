@@ -69,8 +69,10 @@ export function nextOrderOffer(afterDishDiscounts: number, current: Applied | nu
 }
 
 // Short label for badges and lists: "20% off", "₹30 off".
-export const offerBadge = (o: Pick<Offer, "type" | "value">) => (o.type === "percent" ? `${o.value}% off` : `₹${o.value} off`);
+// Never shows "NaN": an offer row with a missing value just reads "Offer".
+export const offerBadge = (o: Pick<Offer, "type" | "value">) =>
+  !Number.isFinite(o.value) ? "Offer" : o.type === "percent" ? `${o.value}% off` : `₹${o.value} off`;
 
 // Banner text for order offers: "₹50 off on orders above ₹499".
 export const orderOfferText = (o: Offer) =>
-  o.min_order > 0 ? `${offerBadge(o)} on orders above ₹${o.min_order}` : `${offerBadge(o)} on your order`;
+  Number.isFinite(o.min_order) && o.min_order > 0 ? `${offerBadge(o)} on orders above ₹${o.min_order}` : `${offerBadge(o)} on your order`;
