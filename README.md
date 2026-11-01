@@ -67,6 +67,7 @@ npm run build   # production build; must pass, Vercel runs the same build
 | [docs/database.md](docs/database.md) | Every SQL file, the order to run them, which delete data and which must never be re-run |
 | [docs/architecture.md](docs/architecture.md) | How the parts connect, what runs where, and who can do what (security model) |
 | [docs/operations.md](docs/operations.md) | Testing on the dev link, going live, rolling back, and fixing common problems |
+| [docs/Xu-Noodles-Guide.pdf](docs/Xu-Noodles-Guide.pdf?raw=true) | **Download:** all of the above as one easy-to-read PDF guide (20 pages) |
 
 ## Project layout
 
