@@ -126,9 +126,11 @@ function StatusLabel({ text, tone }: { text: string; tone: "new" | "urgent" | "a
 }
 
 function NewOrderCard({ order }: { order: AdminOrder }) {
-  const { vegById, defaultPrep, now, notify } = useShift();
+  const { vegById, now, notify } = useShift();
   const { busy, run } = useSave();
   const [mode, setMode] = useState<"main" | "reject" | "soldout">("main");
+  const [prep, setPrep] = useState<number | null>(null); // chosen prep time; none until the owner picks one
+  const hintId = `accept-hint-${order.id}`;
   const mins = minutesSince(order.created_at, now);
   const urgent = isUrgent(order, now);
 
@@ -193,21 +195,44 @@ function NewOrderCard({ order }: { order: AdminOrder }) {
       <div className="mt-3 border-t border-stone-200 pt-3">
         {mode === "main" && (
           <div className="space-y-2">
+            {/* Picking a time only selects it; the Accept button below does the accepting. */}
+            <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label={`Prep time for order ${order.order_number}`}>
+              {PREP_CHIPS.map((m) => {
+                const selected = prep === m;
+                return (
+                  <button
+                    key={m}
+                    type="button"
+                    role="radio"
+                    aria-checked={selected}
+                    disabled={busy}
+                    onClick={() => setPrep(m)}
+                    className={`flex min-h-10 items-center justify-center gap-1 rounded-lg border-2 px-2 font-bold disabled:opacity-50 ${
+                      selected ? "border-green-800 bg-green-700 text-white shadow-inner" : "border-stone-300 bg-white text-ink active:bg-stone-100"
+                    }`}
+                  >
+                    {selected && <span aria-hidden>✓</span>}
+                    {m} min
+                  </button>
+                );
+              })}
+            </div>
             <button
               type="button"
-              disabled={busy}
-              onClick={() => accept(defaultPrep)}
-              className={`${btn} min-h-11 w-full bg-green-700 text-heading text-white`}
+              aria-disabled={prep === null || busy}
+              aria-describedby={prep === null ? hintId : undefined}
+              onClick={() => prep !== null && !busy && accept(prep)}
+              className={`${btn} min-h-11 w-full text-heading ${
+                prep === null ? "cursor-not-allowed border-2 border-dashed border-stone-400 bg-stone-100 text-stone-700" : "bg-green-700 text-white"
+              } ${busy ? "opacity-50" : ""}`}
             >
-              {busy ? "Saving…" : `Accept · ${defaultPrep} min`}
+              {busy ? "Saving…" : prep === null ? "Accept" : `Accept · ${prep} min`}
             </button>
-            <div className="grid grid-cols-3 gap-2" role="group" aria-label="Accept with a different prep time">
-              {PREP_CHIPS.map((m) => (
-                <button key={m} type="button" disabled={busy} onClick={() => accept(m)} className={chip}>
-                  {m} min
-                </button>
-              ))}
-            </div>
+            {prep === null && (
+              <p id={hintId} className="-mt-1 text-center text-caption text-stone-700">
+                Choose a time to accept
+              </p>
+            )}
             <button
               type="button"
               disabled={busy}
