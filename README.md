@@ -1,128 +1,103 @@
-# Xu Noodles — Delivery Ordering App
+# Xu Noodles: delivery ordering app
 
-A mobile-first delivery ordering site for **Xu Noodles** (Indo-Chinese), built with Next.js (App Router), TypeScript and Tailwind CSS.
+A mobile-first website for **Xu Noodles**, an Indo-Chinese kitchen that delivers within about 3 km of Gaur City 2 (Greater Noida West). Customers order from their phones and pay on delivery (cash or UPI). The owner runs the kitchen from a separate, installable owner screen.
 
-Customers can browse the menu, filter veg-only, search dishes, pick Half/Full portions, build a cart (saved in the browser) and place a delivery order, then watch its status. The restaurant is delivery only, paid on delivery (cash or UPI). Menu, settings and orders are stored in Supabase. There is no login or online payment.
+There is no online payment and no customer login.
 
-## Run it locally
+## What it does
+
+### For customers (`/`)
+
+- **Menu**: dishes grouped by category, with search, a "Veg only" filter, Veg / Non-veg labels, spice level, bestseller badges and Half / Full portions. Sold-out dishes are greyed out.
+- **Offers**: discounted dishes show the old price struck through and a badge such as "20% off". Order offers show as a banner, for example "₹50 off on orders above ₹499".
+- **Cart** (`/cart`): saved on the phone. Shows subtotal, offer discount, GST (5%), delivery fee and total, plus a hint like "Add ₹42 more to get ₹30 off".
+- **Checkout** (`/checkout`): name, mobile number, society, tower / block, flat number, optional gate / landmark and cooking instructions. Details are remembered on the phone for next time. The button reads "Place order · Pay ₹X on delivery".
+- **Order status** (`/order/<id>`): shows the order number and updates every 5 seconds: waiting for the restaurant, accepted (with an "Arriving in about X minutes" countdown), rejected (with the reason) or cancelled. It also shows the dishes, the cooking instructions and the price breakdown.
+
+### For the owner (`/admin`)
+
+Sign in with email and password. The screen opens straight on **Orders**.
+
+- **Orders**:
+  - **New orders** arrive live with a chime every 10 seconds; after 3 minutes the card flashes and the chime gets louder.
+  - **Accept** by choosing 30 / 40 / 50 minutes and then tapping Accept.
+  - **Reject** with a reason. "Item sold out" also hides that dish until 6:00 am IST.
+  - **Accepted today** has **Print bill** (58/80 mm receipt printers or A4) and **Cancel** (customer not available, refused, other).
+  - Orders not answered within 8 minutes are rejected automatically.
+- **Menu**: an Available / Sold out switch for each dish (until 6:00 am, or until turned back on), plus Add, Edit, Duplicate and Remove from menu. Removed dishes can be restored.
+- **Offers**: % off a category, ₹ off a dish, or ₹ off orders above ₹X, each with an end date. Shows Active, Scheduled and Ended offers, with "Stop now".
+- **Sales**: Today, Yesterday, This week or This month, compared with the same point in the previous period. Shows net sales, orders, average order value, top dishes, dishes with no orders, missed sales and offer results.
+- **Alerts**: a phone notification for every new order, even when the app is closed. The owner screen installs as the "Xu Kitchen" app. Alerts switch themselves on once allowed, and the header shows "🔔 Alerts on".
+- **Settings**: change password, send a test notification, log out.
+
+All times and day boundaries use Indian time (IST, Asia/Kolkata).
+
+## Tech stack
+
+| Part | What |
+| --- | --- |
+| Website | [Next.js 15](https://nextjs.org) (App Router), React 19, TypeScript, Tailwind CSS 4 |
+| Hosting | [Vercel](https://vercel.com): `main` is the live site; every other branch (for example `dev`) gets a preview link |
+| Database, login, live updates | [Supabase](https://supabase.com): Postgres with row level security, Auth, Realtime, `pg_cron` |
+| New-order notifications | Supabase Edge Function (Deno) + Database Webhook, standard Web Push with VAPID keys, a service worker on the owner's phone |
+| Checks | `npm run lint` (TypeScript + React hook rules) |
+
+## Quick start (developers)
+
+You need Node.js 20 or newer and access to a Supabase project that has been set up as described in [docs/setup.md](docs/setup.md).
 
 ```bash
 npm install
-npm run dev      # open http://localhost:3000
-npm run build    # production build (must pass before deploying)
-npm run lint     # type check + React hook rules (catches "Rendered more hooks" crashes before they ship)
+cp .env.example .env.local   # then fill in the three values (see docs/setup.md)
+npm run dev                  # http://localhost:3000 (customer) and http://localhost:3000/admin (owner)
 ```
 
-## Supabase
+Before pushing:
 
-The menu page loads dishes from the Supabase `menu_items` table.
+```bash
+npm run lint    # type check + React hook rules
+npm run build   # production build; must pass, Vercel runs the same build
+```
 
-1. Copy `.env.example` to `.env.local` and fill in `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (Supabase → Project Settings → API). Set the same two variables on your host when deploying.
-2. Run [`supabase/seed.sql`](supabase/seed.sql) once in the Supabase SQL editor to add the `emoji` column and load the current menu.
-3. Run [`supabase/updates.sql`](supabase/updates.sql) **once** in the SQL editor. It deletes all test orders, adds the `restaurant_settings` table, changes `orders` to delivery-only and adds the `place_order` and `get_order_status` functions. Don't run it again once real orders exist: it deletes all orders.
-4. Run [`supabase/02_free_text_society.sql`](supabase/02_free_text_society.sql). It only replaces `place_order` so customers can type any society name. It doesn't delete or change any data.
-5. Run [`supabase/03_owner_orders.sql`](supabase/03_owner_orders.sql). It turns on live updates for `orders`, lets signed-in staff read/update orders and mark dishes sold out (customers can still only read the menu), and adds a job that auto-rejects orders still pending after 8 minutes. It doesn't delete or change any data.
-6. Run [`supabase/04_menu.sql`](supabase/04_menu.sql). It adds `menu_items.is_archived` ("Remove from menu"), lets signed-in staff add dishes, and stops archived dishes being ordered. It doesn't delete or change any data.
-7. Run [`supabase/05_push.sql`](supabase/05_push.sql). It adds the `push_subscriptions` table (phones that turned on order notifications). It doesn't change any other data.
-8. Run [`supabase/06_offers_and_sales.sql`](supabase/06_offers_and_sales.sql). It sets up offers (anyone can read them; only staff can create or stop them), records which offer each order used, makes `place_order` apply offers, and adds `sales_summary` for the Sales tab. It doesn't delete any data.
+## Documentation
 
-`category` must be one of the category ids below (e.g. `soups`). Dishes with both `price_half` and `price_full` get a Half/Full choice. Set `sold_out_until` to a future time to show a dish as sold out until then.
-
-We deliver within about 3 km of Gaur City 2 (Greater Noida West). At checkout customers type their society, tower and flat number; there is no list of allowed societies, so the owner rejects orders that are too far away. The single `restaurant_settings` row holds the delivery fee, minimum order and default prep time (edit it in the table editor). Its `delivery_areas` column is no longer used.
-
-Orders are saved to `orders` / `order_items` with status `pending`. The customer's status page updates within 5 seconds when the owner changes `status` to:
-
-- `accepted` (set `prep_minutes` and `accepted_at`): shows "Arriving in about X minutes"
-- `rejected` (set `reject_reason`)
-- `cancelled`: only for an accepted order that failed, e.g. customer not home or refused to pay (set `reject_reason` and `cancelled_at`)
-
-## Owner screen (/admin)
-
-Open `/admin` on the kitchen phone and sign in. **Every signed-in user is treated as staff**, so:
-
-1. In Supabase → Authentication → Sign In / Providers, turn **off** "Allow new users to sign up".
-2. Create the owner's login in Authentication → Users → Add user (email + password). The password can be changed later in the app's Settings.
-
-After signing in (and every time `/admin` is opened) the Orders screen opens straight away. Browsers only allow sound after the page has been touched, so if sound is still locked a slim banner says "Tap anywhere to turn on order sound"; the first tap or key press turns it on. The screen stays awake while the Orders screen is showing (where the browser supports it). The Orders tab shows:
-
-- **New**: pending orders, oldest first. A chime plays every 10 seconds while any are waiting; after 3 minutes the card flashes and the chime gets louder. **Accept** uses `default_prep_minutes` from `restaurant_settings`, or tap 30 / 40 / 50 min. **Reject** asks for a reason; "Item sold out" also hides that dish until the next 6:00 am IST. Orders not answered in 8 minutes are rejected automatically ("Restaurant didn't respond").
-- **Accepted today**: with **Print bill** (receipt for 58/80 mm printers or A4) and **Cancel** (customer not available / refused / other).
-
-The **Menu** tab lists every dish by category (same order as the customer menu) with a search box:
-
-- **Available / Sold out** switch: Sold out lasts until the next 6:00 am IST, with a 5-second Undo. Long-press the switch or tap **⋯** for "Sold out until I turn it back on".
-- **+ Add dish** in each category, or tap a dish to edit it. Edit also has **Duplicate** and **Remove from menu** (hidden from customers; past orders are unaffected). Removed dishes can be restored from "Removed dishes" at the bottom.
-
-### Order notifications (push)
-
-New orders also arrive as phone notifications, even when the owner screen is closed (standard Web Push, no paid services).
-
-- `/admin` is installable as the **Xu Kitchen** app (`public/admin.webmanifest`, icons in `public/icons/`). `public/sw.js` shows the notifications and opens `/admin` when one is tapped.
-- The Supabase Edge Function [`supabase/functions/notify-new-order`](supabase/functions/notify-new-order/index.ts) runs on every new order (Database Webhook on INSERT into `orders`) and sends to every saved phone, removing phones that are no longer valid. It also sends the "Send test notification" from Settings.
-- Keys: `NEXT_PUBLIC_VAPID_PUBLIC_KEY` in the website environment; `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` and `VAPID_SUBJECT` (e.g. `mailto:you@example.com`) as Supabase Edge Function secrets. **Never commit the private key.**
-- Alerts stay on by themselves: every time `/admin` opens it silently checks that this device has a valid subscription saved (renewing it if it is missing, expired or made with an old key), and the header shows "🔔 Alerts on". If the browser renews the subscription in the background, the service worker gets it saved (through the open owner screen, or the Edge Function's `renew` request when the app is closed). If the owner has never been asked, a one-time banner offers "Turn on alerts"; if alerts are blocked, a warning explains how to allow them again. Settings keeps "Send test notification". On iPhone alerts only work after "Add to Home Screen", opened from the home screen (iOS 16.4+).
-
-The **Offers** tab lists Active, Scheduled and Ended offers (with **Stop now**) and creates new ones from three templates: % off a category, ₹ off a dish, or ₹ off orders above ₹X. Each offer needs an end date (Today only, This weekend, 7 days or a picked date, always 11:59 pm IST). A dish can only have one dish or category offer at a time.
-
-Offer rules (in `place_order` and mirrored in `lib/pricing.ts`, which must stay in sync): each dish gets at most one discount and a dish offer beats a category offer; a flat discount never takes a dish below ₹1; at most one order-level offer applies (the biggest, once the subtotal after dish discounts reaches its minimum); GST is 5% of (subtotal − discount). The checkout sends the total the customer saw; if an offer started or ended meanwhile, the order is refused with `PRICE_CHANGED`, prices reload and the cart is kept.
-
-The **Sales** tab shows Today, Yesterday, This week (from Monday) or This month, compared with the same point last week / last month: net sales (after discounts, without GST and delivery fees), orders, average order value, top dishes, dishes with no orders, missed sales by reason, and offer results.
-
-All times and day boundaries are Indian time (IST).
-
-## Data saved on the device
-
-Everything the app keeps in the browser goes through [`lib/storage.ts`](lib/storage.ts): `xu-noodles-cart-v2`, `xu-noodles-customer-v2` and `xu-noodles-orders-v2`. Each item is versioned and checked when read; anything missing, from an older version, the wrong shape or unreadable is discarded on its own and the app starts fresh for it. Saved orders that no longer exist in the database are forgotten. The live app's `xu-noodles-cart-v1` (dish slugs) is carried over to today's dishes; the old `xu-noodles-orders-v1` is removed. When changing what an item holds, bump its version in the key.
-
-The service worker (`public/sw.js`) only handles notifications: it never caches JavaScript, CSS or pages, deletes old caches when a new version activates, and is served with `no-cache`.
-
-## Design scale
-
-One type scale is defined in `app/globals.css` and used everywhere: `text-caption` 13px (secondary), `text-body` 15px, `text-heading` 17px (sections, card titles), `text-title` 21px (page titles), `text-metric` 26px (Sales numbers); 12px only for small badges. Spacing uses Tailwind's 4px steps. Primary buttons (Accept, Reject, Place order) are at least 44px tall on phones; other buttons and chips at least 36px. Owner screens use 2–3 column grids from 768px, a 1200px max width, and a top tab row instead of the bottom tab bar from 1024px.
-
-## Editing the menu (data/menu.ts)
-
-The category list and order and card colours live in [`data/menu.ts`](data/menu.ts). GST is set in `lib/pricing.ts` (`GST_PERCENT`) and in `place_order` (latest version: `supabase/06_offers_and_sales.sql`); change both together. The dish list in that file is only used for the original seed and card colours.
-
-### Change, add or remove dishes
-
-Use the **Menu** tab on the owner screen (`/admin/menu`). Prices are whole rupees before GST. Customers see changes the next time they load the menu.
-
-### Add, rename or reorder categories
-
-Edit the `categories` list near the top of the file. The order there is the order of the tabs and sections.
-
-To add a new category:
-
-1. Add its id to the `CategoryId` type, e.g. `| "chopsuey"`.
-2. Add `{ id: "chopsuey", name: "Chopsuey", emoji: "🥢" }` to `categories`.
-3. Set `category` to `chopsuey` on those dishes in `menu_items`.
-
-Empty categories are hidden automatically.
-
-### GST
-
-GST is 5% (`GST_PERCENT` in `lib/pricing.ts` and the `0.05` in `place_order`; change both together).
+| Document | For |
+| --- | --- |
+| [docs/setup.md](docs/setup.md) | Setting everything up from scratch, step by step (no coding needed) |
+| [docs/database.md](docs/database.md) | Every SQL file, the order to run them, which delete data and which must never be re-run |
+| [docs/architecture.md](docs/architecture.md) | How the parts connect, what runs where, and who can do what (security model) |
+| [docs/operations.md](docs/operations.md) | Testing on the dev link, going live, rolling back, and fixing common problems |
 
 ## Project layout
 
 ```
-app/page.tsx            Menu page (tabs, search, veg filter)
-app/cart/page.tsx       Cart and bill summary
-app/checkout/page.tsx   Delivery details and place order
-app/order/[id]/page.tsx Order status page
-app/admin/               Owner screen: login, orders, print bill, settings
-components/admin/       Admin shell (sign-in check, chime, alerts, tabs)
-lib/admin/              Owner queries (orders, menu, offers, sales), IST time helpers, chime, push
-lib/pricing.ts          Offer and price rules (must match place_order)
-public/sw.js            Service worker for order notifications
-supabase/functions/     notify-new-order Edge Function (Deno)
-components/             Header, logo, item card, portion picker, cart bar
-lib/cart.tsx            Cart state (saved to localStorage)
-lib/menu.tsx            Loads the menu from Supabase
-lib/orders.ts           place_order / get_order_status calls
-lib/settings.ts         Delivery fee and minimum order
-lib/customer.ts         Name, phone and address remembered on the phone
-supabase/               seed.sql, updates.sql, 02_… to 06_offers_and_sales.sql (run in order)
-data/menu.ts            ← the menu
+app/                     Pages
+  page.tsx               Menu (customer home)
+  cart/, checkout/       Cart and checkout
+  order/[id]/            Order status page
+  admin/                 Owner screen: login, orders, menu, offers, sales, settings, print/[id]
+  error.tsx, global-error.tsx   "Something went wrong. Please refresh." pages
+components/              Shared pieces (menu card, bill lines, error boundary, ...)
+  admin/                 Owner shell (sign-in check, chime, alerts, tabs), dish and offer forms
+lib/                     Logic
+  supabase.ts            Supabase client (reads the environment variables)
+  menu.tsx, menu-db.ts   Loads dishes and offers
+  cart.tsx, pricing.ts   Cart and price rules (pricing.ts must match place_order in SQL)
+  orders.ts, customer.ts Placing orders, saved orders and saved address
+  storage.ts             Everything saved on the device (versioned and checked)
+  settings.ts            Delivery fee and minimum order
+  admin/                 Owner queries, IST time helpers, chime, push alerts, sales
+data/menu.ts             Category list and order, card colours (the original static menu)
+public/sw.js             Service worker: notifications only (never caches pages)
+public/admin.webmanifest Makes /admin installable as "Xu Kitchen"
+supabase/*.sql           Database setup, run in order (see docs/database.md)
+supabase/functions/notify-new-order/   Edge Function that sends the notifications
 ```
+
+## Rules of thumb for changes
+
+- **Never put keys, passwords, emails or customer data in this repository.** It is public. Keys go in Vercel environment variables and Supabase secrets only.
+- **Prices:** the price and offer rules live in two places that must agree: `place_order` (SQL) and `lib/pricing.ts`. The server refuses an order whose total differs from what the customer saw.
+- **Saved data:** anything saved on the device goes through `lib/storage.ts`. If you change what an item holds, change the version in its key.
+- **Database changes:** add a new numbered SQL file (`07_…sql`). Don't edit files that have already been run; see [docs/database.md](docs/database.md).
+- **Deploying:** push to `dev`, test on the preview link, then go live with a pull request into `main` ([docs/operations.md](docs/operations.md)).
