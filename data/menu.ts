@@ -35,6 +35,7 @@ export type MenuItem = {
   name: string;
   description: string;
   category: CategoryId;
+  categoryRaw?: string; // category exactly as stored in menu_items (offers match on this)
   price: number; // used when there are no portions; otherwise the lowest portion price
   veg: boolean;
   spice: 0 | 1 | 2 | 3;
@@ -42,6 +43,7 @@ export type MenuItem = {
   portions?: Portion[];
   emoji: string;
   color: string; // Tailwind gradient classes for the placeholder image
+  soldOut?: boolean; // set from Supabase `sold_out_until`
 };
 
 // Order here = order on the menu page and in the category tabs.
@@ -463,7 +465,5 @@ export const menu: MenuItem[] = [
   },
 ];
 
-// Tax rate applied on the cart page.
-export const GST_RATE = 0.05;
 
 export const RESTAURANT_NAME = "Xu Noodles";

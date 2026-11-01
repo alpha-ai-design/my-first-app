@@ -1,40 +1,57 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { GST_RATE, menu, type MenuItem } from "@/data/menu";
+import type { MenuItem } from "@/data/menu";
+import { useMenu } from "@/lib/menu";
+import { menu as staticMenu } from "@/data/menu";
+import { dishOffer, gstOn, nextOrderOffer, orderOffer, type Applied, type Offer } from "@/lib/pricing";
+import { isObject, isText, isWholeNumber, readItem, removeItem, removeLegacyItems, writeItem } from "@/lib/storage";
 
 export type CartLine = {
   key: string; // itemId + portion, so Half and Full are separate lines
-  itemId: string;
+  itemId: string; // menu_items.id
   portion?: string;
   qty: number;
 };
 
 type CartContextValue = {
   lines: CartLine[];
-  note: string;
-  setNote: (note: string) => void;
+  getItem: (id: string) => MenuItem | undefined;
   add: (itemId: string, portion?: string) => void;
   decrement: (key: string) => void;
   remove: (key: string) => void;
   clear: () => void;
   count: number;
-  itemTotal: number;
-  gst: number;
-  grandTotal: number;
-  hydrated: boolean;
+  itemTotal: number; // subtotal at menu prices, before discounts
+  dishDiscount: number; // from dish and category offers
+  orderOffer: Applied | null; // the order-level offer applied, if any
+  discount: number; // dishDiscount + order offer
+  nextOffer: { offer: Offer; gap: number; discount: number } | null; // "Add ₹X more to get ₹Y off"
+  gst: number; // on (subtotal - discount)
+  grandTotal: number; // subtotal - discount + GST (delivery fee is added on the page)
+  hydrated: boolean; // saved cart and menu are both loaded
 };
 
-const STORAGE_KEY = "xu-noodles-cart-v1";
+// v2: item ids are Supabase menu_items ids.
+const STORAGE_KEY = "xu-noodles-cart-v2";
+// v1: the live app on main, where item ids are dish slugs from data/menu.ts ("veg-momos").
+const LEGACY_KEY = "xu-noodles-cart-v1";
+
+// A cart line, or null if it isn't the expected shape.
+function checkLine(v: unknown): CartLine | null {
+  if (!isObject(v) || !isText(v.itemId, 100) || !v.itemId || !isWholeNumber(v.qty, 1, 20)) return null;
+  if (v.portion !== undefined && v.portion !== "Half" && v.portion !== "Full") return null;
+  const portion = v.portion as string | undefined;
+  return { key: lineKey(v.itemId, portion), itemId: v.itemId, portion, qty: v.qty };
+}
+
+const checkCart = (v: unknown): CartLine[] | null =>
+  isObject(v) && Array.isArray(v.lines) ? v.lines.map(checkLine).filter((l): l is CartLine => l !== null) : null;
 
 const CartContext = createContext<CartContextValue | null>(null);
 
 export const lineKey = (itemId: string, portion?: string) =>
   portion ? `${itemId}__${portion}` : itemId;
-
-export function getItem(id: string): MenuItem | undefined {
-  return menu.find((m) => m.id === id);
-}
 
 export function unitPrice(item: MenuItem, portion?: string): number {
   if (portion && item.portions) {
@@ -44,45 +61,63 @@ export function unitPrice(item: MenuItem, portion?: string): number {
   return item.price;
 }
 
+// Price of one unit after any dish or category offer.
+export function offerPrice(item: MenuItem, portion: string | undefined, offers: Offer[]): { price: number; applied: Applied | null } {
+  const base = unitPrice(item, portion);
+  const applied = dishOffer({ id: item.id, categoryRaw: item.categoryRaw ?? "" }, base, offers);
+  return { price: base - (applied?.discount ?? 0), applied };
+}
+
 export function formatINR(amount: number): string {
   return "₹" + Math.round(amount).toLocaleString("en-IN");
 }
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
+  const { menu, error: menuError, getItem, offers } = useMenu();
   const [lines, setLines] = useState<CartLine[]>([]);
-  const [note, setNote] = useState("");
-  const [hydrated, setHydrated] = useState(false);
+  const [legacyLines, setLegacyLines] = useState<CartLine[]>([]); // from main's cart, mapped once the menu loads
+  const [loaded, setLoaded] = useState(false);
 
-  // Load the saved cart once on the client.
+  // Load the saved cart once on the client. Anything unreadable is discarded, never thrown.
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const saved = JSON.parse(raw) as { lines?: CartLine[]; note?: string };
-        // Drop anything that no longer exists on the menu.
-        setLines((saved.lines ?? []).filter((l) => getItem(l.itemId) && l.qty > 0));
-        setNote(saved.note ?? "");
-      }
-    } catch {
-      // Ignore broken or blocked storage.
-    }
-    setHydrated(true);
+    removeLegacyItems();
+    const saved = readItem(STORAGE_KEY, checkCart);
+    if (saved) setLines(saved);
+    else setLegacyLines(readItem(LEGACY_KEY, checkCart) ?? []);
+    removeItem(LEGACY_KEY);
+    setLoaded(true);
   }, []);
 
+  // Once the menu is in: bring over a cart from the old app (dish slug → dish name → today's dish),
+  // and drop anything that no longer exists on the menu.
   useEffect(() => {
-    if (!hydrated) return;
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ lines, note }));
-    } catch {
-      // Ignore storage errors (private mode, quota).
-    }
-  }, [lines, note, hydrated]);
+    if (!menu || !loaded) return;
+    setLines((prev) => {
+      const migrated = legacyLines.flatMap((l) => {
+        const name = staticMenu.find((d) => d.id === l.itemId)?.name.toLowerCase();
+        const dish = name ? menu.find((d) => d.name.toLowerCase() === name) : undefined;
+        if (!dish) return [];
+        const portion = dish.portions?.some((p) => p.label === l.portion) ? l.portion : undefined;
+        if (dish.portions?.length && !portion) return [];
+        return [{ key: lineKey(dish.id, portion), itemId: dish.id, portion, qty: l.qty }];
+      });
+      const kept = [...prev, ...migrated].filter((l) => getItem(l.itemId));
+      return kept.length === prev.length && !migrated.length ? prev : kept;
+    });
+    if (legacyLines.length) setLegacyLines([]);
+  }, [menu, loaded, getItem, legacyLines]);
+
+  const hydrated = loaded && (!!menu || menuError);
+
+  useEffect(() => {
+    if (hydrated) writeItem(STORAGE_KEY, { lines });
+  }, [lines, hydrated]);
 
   const add = useCallback((itemId: string, portion?: string) => {
     const key = lineKey(itemId, portion);
     setLines((prev) => {
       const existing = prev.find((l) => l.key === key);
-      if (existing) return prev.map((l) => (l.key === key ? { ...l, qty: l.qty + 1 } : l));
+      if (existing) return prev.map((l) => (l.key === key ? { ...l, qty: Math.min(20, l.qty + 1) } : l));
       return [...prev, { key, itemId, portion, qty: 1 }];
     });
   }, []);
@@ -97,33 +132,40 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     setLines((prev) => prev.filter((l) => l.key !== key));
   }, []);
 
-  const clear = useCallback(() => {
-    setLines([]);
-    setNote("");
-  }, []);
+  const clear = useCallback(() => setLines([]), []);
 
   const value = useMemo<CartContextValue>(() => {
     const count = lines.reduce((s, l) => s + l.qty, 0);
-    const itemTotal = lines.reduce((s, l) => {
+    let itemTotal = 0;
+    let dishDiscount = 0;
+    for (const l of lines) {
       const item = getItem(l.itemId);
-      return item ? s + unitPrice(item, l.portion) * l.qty : s;
-    }, 0);
-    const gst = Math.round(itemTotal * GST_RATE);
+      if (!item) continue;
+      itemTotal += unitPrice(item, l.portion) * l.qty;
+      dishDiscount += (unitPrice(item, l.portion) - offerPrice(item, l.portion, offers).price) * l.qty;
+    }
+    const afterDish = itemTotal - dishDiscount;
+    const applied = orderOffer(afterDish, offers);
+    const discount = dishDiscount + (applied?.discount ?? 0);
+    const gst = gstOn(itemTotal - discount);
     return {
       lines,
-      note,
-      setNote,
+      getItem,
       add,
       decrement,
       remove,
       clear,
       count,
       itemTotal,
+      dishDiscount,
+      orderOffer: applied,
+      discount,
+      nextOffer: nextOrderOffer(afterDish, applied, offers),
       gst,
-      grandTotal: itemTotal + gst,
+      grandTotal: itemTotal - discount + gst,
       hydrated,
     };
-  }, [lines, note, add, decrement, remove, clear, hydrated]);
+  }, [lines, getItem, offers, add, decrement, remove, clear, hydrated]);
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 }
