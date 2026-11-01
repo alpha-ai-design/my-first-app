@@ -9,7 +9,7 @@ type Props = {
   name?: string;
   compact?: boolean;
   // When this changes (e.g. the page URL), a failed boundary tries again. Children are NOT remounted,
-  // so state above and below (like a started kitchen shift) survives navigation.
+  // so state above and below (like the kitchen screen's live orders) survives navigation.
   resetKey?: string;
 };
 

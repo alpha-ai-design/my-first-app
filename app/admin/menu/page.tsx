@@ -2,7 +2,7 @@
 
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useShift } from "@/components/admin/AdminShell";
+import { useKitchen } from "@/components/admin/AdminShell";
 import DishForm, { categoryId, type FormStart } from "@/components/admin/DishForm";
 import { VegLabel } from "@/components/Badges";
 import { categories } from "@/data/menu";
@@ -36,7 +36,7 @@ function soldOutLabel(d: Dish) {
 }
 
 export default function AdminMenuPage() {
-  const { now } = useShift();
+  const { now } = useKitchen();
   const [dishes, setDishes] = useState<Dish[] | null>(null);
   const [loadError, setLoadError] = useState(false);
   const [query, setQuery] = useState("");

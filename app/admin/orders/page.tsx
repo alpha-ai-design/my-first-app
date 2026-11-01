@@ -2,7 +2,7 @@
 
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { useState } from "react";
-import { isUrgent, useShift } from "@/components/admin/AdminShell";
+import { isUrgent, useKitchen } from "@/components/admin/AdminShell";
 import { VegMark } from "@/components/Badges";
 import { formatTimeIST, minutesSince } from "@/lib/admin/ist";
 import {
@@ -26,7 +26,7 @@ const btn = "min-h-11 rounded-lg px-4 font-bold disabled:opacity-50 md:min-h-10"
 const chip = "min-h-10 rounded-lg border-2 border-stone-300 bg-white px-3 font-semibold active:bg-stone-100 disabled:opacity-50";
 
 export default function AdminOrdersPage() {
-  const { pending, accepted, loaded, loadError } = useShift();
+  const { pending, accepted, loaded, loadError } = useKitchen();
 
   return (
     <main className="mx-auto max-w-[1200px] space-y-6 px-3 pt-3 sm:px-4">
@@ -77,7 +77,7 @@ export default function AdminOrdersPage() {
 
 // Runs a save, blocks double taps, and handles "already closed" and errors the same way everywhere.
 function useSave() {
-  const { refresh, notify } = useShift();
+  const { refresh, notify } = useKitchen();
   const [busy, setBusy] = useState(false);
   const run = async (action: () => Promise<UpdateResult>, onOk?: () => Promise<void>) => {
     if (busy) return;
@@ -126,7 +126,7 @@ function StatusLabel({ text, tone }: { text: string; tone: "new" | "urgent" | "a
 }
 
 function NewOrderCard({ order }: { order: AdminOrder }) {
-  const { vegById, now, notify } = useShift();
+  const { vegById, now, notify } = useKitchen();
   const { busy, run } = useSave();
   const [mode, setMode] = useState<"main" | "reject" | "soldout">("main");
   const [prep, setPrep] = useState<number | null>(null); // chosen prep time; none until the owner picks one

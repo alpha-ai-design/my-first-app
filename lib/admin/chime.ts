@@ -1,16 +1,35 @@
 // New-order sounds, made with the Web Audio API (no sound files).
-// Browsers only allow sound after a tap, so unlockAudio() runs from the "Start shift" button.
+// Browsers only allow sound after the user has interacted with the page, so the owner screen
+// unlocks it on the first tap or key press (and straight away if the page already had one,
+// e.g. right after signing in).
 
 let ctx: AudioContext | null = null;
+const listeners = new Set<(unlocked: boolean) => void>();
 
-export function unlockAudio() {
+export const isSoundUnlocked = () => ctx?.state === "running";
+
+// Called with true/false whenever sound becomes available or gets blocked again (e.g. iOS
+// suspends audio after a phone call). Returns an unsubscribe function.
+export function onSoundChange(listener: (unlocked: boolean) => void): () => void {
+  listeners.add(listener);
+  return () => void listeners.delete(listener);
+}
+
+// Try to start sound. Only succeeds during (or after) a user interaction.
+export async function unlockAudio(): Promise<boolean> {
   try {
-    ctx ??= new AudioContext();
-    void ctx.resume();
+    if (!ctx) {
+      ctx = new AudioContext();
+      ctx.addEventListener("statechange", () => listeners.forEach((l) => l(isSoundUnlocked())));
+    }
+    await ctx.resume();
     tone(ctx, 0, 1, 0.001, "sine", 0.05); // silent blip finishes the unlock on iOS
   } catch {
     // No audio support; the screen still works.
   }
+  const unlocked = isSoundUnlocked();
+  listeners.forEach((l) => l(unlocked));
+  return unlocked;
 }
 
 function tone(ac: AudioContext, start: number, freq: number, volume: number, type: OscillatorType, length: number) {

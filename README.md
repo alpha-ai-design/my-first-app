@@ -43,7 +43,7 @@ Open `/admin` on the kitchen phone and sign in. **Every signed-in user is treate
 1. In Supabase → Authentication → Sign In / Providers, turn **off** "Allow new users to sign up".
 2. Create the owner's login in Authentication → Users → Add user (email + password). The password can be changed later in the app's Settings.
 
-Tap **Start shift** to turn on the chime and keep the screen awake. The Orders tab shows:
+After signing in (and every time `/admin` is opened) the Orders screen opens straight away. Browsers only allow sound after the page has been touched, so if sound is still locked a slim banner says "Tap anywhere to turn on order sound"; the first tap or key press turns it on. The screen stays awake while the Orders screen is showing (where the browser supports it). The Orders tab shows:
 
 - **New**: pending orders, oldest first. A chime plays every 10 seconds while any are waiting; after 3 minutes the card flashes and the chime gets louder. **Accept** uses `default_prep_minutes` from `restaurant_settings`, or tap 30 / 40 / 50 min. **Reject** asks for a reason; "Item sold out" also hides that dish until the next 6:00 am IST. Orders not answered in 8 minutes are rejected automatically ("Restaurant didn't respond").
 - **Accepted today**: with **Print bill** (receipt for 58/80 mm printers or A4) and **Cancel** (customer not available / refused / other).
@@ -60,7 +60,7 @@ New orders also arrive as phone notifications, even when the owner screen is clo
 - `/admin` is installable as the **Xu Kitchen** app (`public/admin.webmanifest`, icons in `public/icons/`). `public/sw.js` shows the notifications and opens `/admin` when one is tapped.
 - The Supabase Edge Function [`supabase/functions/notify-new-order`](supabase/functions/notify-new-order/index.ts) runs on every new order (Database Webhook on INSERT into `orders`) and sends to every saved phone, removing phones that are no longer valid. It also sends the "Send test notification" from Settings.
 - Keys: `NEXT_PUBLIC_VAPID_PUBLIC_KEY` in the website environment; `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` and `VAPID_SUBJECT` (e.g. `mailto:you@example.com`) as Supabase Edge Function secrets. **Never commit the private key.**
-- Turn notifications on from the Start shift screen or Settings. On iPhone this only works after "Add to Home Screen", opened from the home screen (iOS 16.4+).
+- Alerts stay on by themselves: every time `/admin` opens it silently checks that this device has a valid subscription saved (renewing it if it is missing, expired or made with an old key), and the header shows "🔔 Alerts on". If the browser renews the subscription in the background, the service worker gets it saved (through the open owner screen, or the Edge Function's `renew` request when the app is closed). If the owner has never been asked, a one-time banner offers "Turn on alerts"; if alerts are blocked, a warning explains how to allow them again. Settings keeps "Send test notification". On iPhone alerts only work after "Add to Home Screen", opened from the home screen (iOS 16.4+).
 
 The **Offers** tab lists Active, Scheduled and Ended offers (with **Stop now**) and creates new ones from three templates: % off a category, ₹ off a dish, or ₹ off orders above ₹X. Each offer needs an end date (Today only, This weekend, 7 days or a picked date, always 11:59 pm IST). A dish can only have one dish or category offer at a time.
 
@@ -78,7 +78,7 @@ The service worker (`public/sw.js`) only handles notifications: it never caches 
 
 ## Design scale
 
-One type scale is defined in `app/globals.css` and used everywhere: `text-caption` 13px (secondary), `text-body` 15px, `text-heading` 17px (sections, card titles), `text-title` 21px (page titles), `text-metric` 26px (Sales numbers); 12px only for small badges. Spacing uses Tailwind's 4px steps. Primary buttons (Accept, Reject, Place order, Start shift) are at least 44px tall on phones; other buttons and chips at least 36px. Owner screens use 2–3 column grids from 768px, a 1200px max width, and a top tab row instead of the bottom tab bar from 1024px.
+One type scale is defined in `app/globals.css` and used everywhere: `text-caption` 13px (secondary), `text-body` 15px, `text-heading` 17px (sections, card titles), `text-title` 21px (page titles), `text-metric` 26px (Sales numbers); 12px only for small badges. Spacing uses Tailwind's 4px steps. Primary buttons (Accept, Reject, Place order) are at least 44px tall on phones; other buttons and chips at least 36px. Owner screens use 2–3 column grids from 768px, a 1200px max width, and a top tab row instead of the bottom tab bar from 1024px.
 
 ## Editing the menu (data/menu.ts)
 
@@ -112,7 +112,7 @@ app/cart/page.tsx       Cart and bill summary
 app/checkout/page.tsx   Delivery details and place order
 app/order/[id]/page.tsx Order status page
 app/admin/               Owner screen: login, orders, print bill, settings
-components/admin/       Admin shell (sign-in check, shift, chime, tabs)
+components/admin/       Admin shell (sign-in check, chime, alerts, tabs)
 lib/admin/              Owner queries (orders, menu, offers, sales), IST time helpers, chime, push
 lib/pricing.ts          Offer and price rules (must match place_order)
 public/sw.js            Service worker for order notifications

@@ -1,8 +1,10 @@
 // Xu Kitchen: push notifications for the owner.
 //
-// One function, two jobs:
+// One function, three jobs:
 //   1. Database Webhook on INSERT into orders → "🔔 New order #12 · Collect ₹457" to every saved device.
 //   2. { type: "test", endpoint } from the owner's Settings → a test notification to that one device.
+//   3. { type: "renew", old_endpoint, endpoint, p256dh, auth } from the service worker when the
+//      browser renews a phone's subscription → replaces the old one.
 //
 // Secrets (Supabase → Edge Functions → Secrets): VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT.
 // SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are provided by Supabase automatically.
@@ -118,6 +120,24 @@ Deno.serve(async (req) => {
         url: "/admin",
       });
       return json(result, result.sent ? 200 : 410);
+    }
+
+    // 3. The phone's browser renewed its push subscription (service worker "pushsubscriptionchange").
+    //    Swap the old address for the new one. Only accepted for an address we already have, so a
+    //    stranger can't add their own device.
+    if (body.type === "renew") {
+      const fields = [body.old_endpoint, body.endpoint, body.p256dh, body.auth];
+      if (!fields.every((f) => typeof f === "string" && f.length > 0 && f.length < 2000) || !/^https:\/\//.test(body.endpoint)) {
+        return json({ error: "Bad renewal request" }, 400);
+      }
+      const { data: old, error } = await db.from("push_subscriptions").select("endpoint").eq("endpoint", body.old_endpoint).maybeSingle();
+      if (error) throw error;
+      if (!old) return json({ error: "Unknown subscription" }, 404);
+      const { error: insertError } = await db.from("push_subscriptions").insert({ endpoint: body.endpoint, p256dh: body.p256dh, auth: body.auth });
+      if (insertError && insertError.code !== "23505") throw insertError;
+      const { error: deleteError } = await db.from("push_subscriptions").delete().eq("endpoint", body.old_endpoint);
+      if (deleteError) throw deleteError;
+      return json({ renewed: true });
     }
 
     // 1. Database Webhook: a new row in orders.

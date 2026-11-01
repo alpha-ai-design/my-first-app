@@ -8,6 +8,7 @@
 //   xu-noodles-cart-v2      { lines: CartLine[] }                       lib/cart.tsx
 //   xu-noodles-customer-v2  name, phone and address for repeat orders   lib/customer.ts
 //   xu-noodles-orders-v2    SavedOrder[] (dishes of recent orders)      lib/orders.ts
+//   xu-kitchen-push-v1      { endpoint } last alert subscription saved   lib/admin/push.ts
 //
 // Old items still found on devices:
 //   xu-noodles-cart-v1      live app on main (dish slugs like "veg-momos") → migrated by lib/cart.tsx

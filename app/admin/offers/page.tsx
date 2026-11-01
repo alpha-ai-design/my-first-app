@@ -2,7 +2,7 @@
 
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { useCallback, useEffect, useState } from "react";
-import { useShift } from "@/components/admin/AdminShell";
+import { useKitchen } from "@/components/admin/AdminShell";
 import OfferForm from "@/components/admin/OfferForm";
 import { formatDayTimeIST, formatDuration } from "@/lib/admin/ist";
 import { fetchDishes, type Dish } from "@/lib/admin/menu";
@@ -16,7 +16,7 @@ const SECTIONS: { phase: OfferPhase; title: string; empty: string }[] = [
 ];
 
 export default function AdminOffersPage() {
-  const { now, notify } = useShift(); // ticks every 10 s so "Ends in" and the sections stay current
+  const { now, notify } = useKitchen(); // ticks every 10 s so "Ends in" and the sections stay current
   const [offers, setOffers] = useState<Offer[] | null>(null);
   const [dishes, setDishes] = useState<Dish[]>([]);
   const [loadError, setLoadError] = useState(false);
@@ -126,7 +126,7 @@ function OfferCard({
   now: number;
   onStopped: () => Promise<void>;
 }) {
-  const { notify } = useShift();
+  const { notify } = useKitchen();
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
   const label = { active: "Active", scheduled: "Scheduled", ended: offer.is_active ? "Ended" : "Stopped" }[phase];
