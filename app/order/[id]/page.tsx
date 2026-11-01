@@ -7,7 +7,7 @@ import { VegMark } from "@/components/Badges";
 import BillLines from "@/components/BillLines";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { formatINR } from "@/lib/cart";
-import { getOrderStatus, getSavedOrder, type OrderStatus, type SavedOrder } from "@/lib/orders";
+import { forgetSavedOrder, getOrderStatus, getSavedOrder, type OrderStatus, type SavedOrder } from "@/lib/orders";
 
 const POLL_MS = 5000;
 
@@ -87,7 +87,10 @@ export default function OrderStatusPage() {
         if (cancelled) return;
         setFailed(false);
         if (s) setStatus(s);
-        else setNotFound(true);
+        else {
+          forgetSavedOrder(id); // e.g. an old test order that was deleted: don't keep pointing to it
+          setNotFound(true);
+        }
       } catch (err) {
         console.error("get_order_status failed", err);
         if (!cancelled) setFailed(true);

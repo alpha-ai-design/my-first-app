@@ -1,8 +1,28 @@
 // Xu Kitchen service worker: shows new-order push notifications and opens the
 // owner screen when one is tapped. Registered with scope /admin.
+//
+// It deliberately has NO "fetch" handler, so it never caches or serves JavaScript, CSS or pages:
+// every file always comes fresh from the network. When a new version activates it deletes any
+// caches left by earlier versions.
+
+const SW_VERSION = "2026-11-01"; // change this to force phones to pick up a new service worker
 
 self.addEventListener("install", () => self.skipWaiting());
-self.addEventListener("activate", (event) => event.waitUntil(self.clients.claim()));
+
+self.addEventListener("activate", (event) => {
+  event.waitUntil(
+    (async () => {
+      const names = await caches.keys();
+      await Promise.all(names.map((name) => caches.delete(name)));
+      await self.clients.claim();
+    })(),
+  );
+});
+
+// Lets a page ask which version is running (used by tests).
+self.addEventListener("message", (event) => {
+  if (event.data === "version" && event.ports[0]) event.ports[0].postMessage(SW_VERSION);
+});
 
 self.addEventListener("push", (event) => {
   let data = {};

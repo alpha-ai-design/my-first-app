@@ -3,7 +3,9 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import type { MenuItem } from "@/data/menu";
 import { useMenu } from "@/lib/menu";
+import { menu as staticMenu } from "@/data/menu";
 import { dishOffer, gstOn, nextOrderOffer, orderOffer, type Applied, type Offer } from "@/lib/pricing";
+import { isObject, isText, isWholeNumber, readItem, removeItem, removeLegacyItems, writeItem } from "@/lib/storage";
 
 export type CartLine = {
   key: string; // itemId + portion, so Half and Full are separate lines
@@ -30,8 +32,21 @@ type CartContextValue = {
   hydrated: boolean; // saved cart and menu are both loaded
 };
 
-// v2: item ids are now Supabase menu_items ids.
+// v2: item ids are Supabase menu_items ids.
 const STORAGE_KEY = "xu-noodles-cart-v2";
+// v1: the live app on main, where item ids are dish slugs from data/menu.ts ("veg-momos").
+const LEGACY_KEY = "xu-noodles-cart-v1";
+
+// A cart line, or null if it isn't the expected shape.
+function checkLine(v: unknown): CartLine | null {
+  if (!isObject(v) || !isText(v.itemId, 100) || !v.itemId || !isWholeNumber(v.qty, 1, 20)) return null;
+  if (v.portion !== undefined && v.portion !== "Half" && v.portion !== "Full") return null;
+  const portion = v.portion as string | undefined;
+  return { key: lineKey(v.itemId, portion), itemId: v.itemId, portion, qty: v.qty };
+}
+
+const checkCart = (v: unknown): CartLine[] | null =>
+  isObject(v) && Array.isArray(v.lines) ? v.lines.map(checkLine).filter((l): l is CartLine => l !== null) : null;
 
 const CartContext = createContext<CartContextValue | null>(null);
 
@@ -60,40 +75,42 @@ export function formatINR(amount: number): string {
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const { menu, error: menuError, getItem, offers } = useMenu();
   const [lines, setLines] = useState<CartLine[]>([]);
+  const [legacyLines, setLegacyLines] = useState<CartLine[]>([]); // from main's cart, mapped once the menu loads
   const [loaded, setLoaded] = useState(false);
 
-  // Load the saved cart once on the client.
+  // Load the saved cart once on the client. Anything unreadable is discarded, never thrown.
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const saved = JSON.parse(raw) as { lines?: CartLine[] };
-        setLines((saved.lines ?? []).filter((l) => l.qty > 0));
-      }
-    } catch {
-      // Ignore broken or blocked storage.
-    }
+    removeLegacyItems();
+    const saved = readItem(STORAGE_KEY, checkCart);
+    if (saved) setLines(saved);
+    else setLegacyLines(readItem(LEGACY_KEY, checkCart) ?? []);
+    removeItem(LEGACY_KEY);
     setLoaded(true);
   }, []);
 
-  // Once the menu is in, drop anything that no longer exists on it.
+  // Once the menu is in: bring over a cart from the old app (dish slug → dish name → today's dish),
+  // and drop anything that no longer exists on the menu.
   useEffect(() => {
     if (!menu || !loaded) return;
     setLines((prev) => {
-      const kept = prev.filter((l) => getItem(l.itemId));
-      return kept.length === prev.length ? prev : kept;
+      const migrated = legacyLines.flatMap((l) => {
+        const name = staticMenu.find((d) => d.id === l.itemId)?.name.toLowerCase();
+        const dish = name ? menu.find((d) => d.name.toLowerCase() === name) : undefined;
+        if (!dish) return [];
+        const portion = dish.portions?.some((p) => p.label === l.portion) ? l.portion : undefined;
+        if (dish.portions?.length && !portion) return [];
+        return [{ key: lineKey(dish.id, portion), itemId: dish.id, portion, qty: l.qty }];
+      });
+      const kept = [...prev, ...migrated].filter((l) => getItem(l.itemId));
+      return kept.length === prev.length && !migrated.length ? prev : kept;
     });
-  }, [menu, loaded, getItem]);
+    if (legacyLines.length) setLegacyLines([]);
+  }, [menu, loaded, getItem, legacyLines]);
 
   const hydrated = loaded && (!!menu || menuError);
 
   useEffect(() => {
-    if (!hydrated) return;
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ lines }));
-    } catch {
-      // Ignore storage errors (private mode, quota).
-    }
+    if (hydrated) writeItem(STORAGE_KEY, { lines });
   }, [lines, hydrated]);
 
   const add = useCallback((itemId: string, portion?: string) => {

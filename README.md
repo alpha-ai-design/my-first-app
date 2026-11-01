@@ -70,6 +70,12 @@ The **Sales** tab shows Today, Yesterday, This week (from Monday) or This month,
 
 All times and day boundaries are Indian time (IST).
 
+## Data saved on the device
+
+Everything the app keeps in the browser goes through [`lib/storage.ts`](lib/storage.ts): `xu-noodles-cart-v2`, `xu-noodles-customer-v2` and `xu-noodles-orders-v2`. Each item is versioned and checked when read; anything missing, from an older version, the wrong shape or unreadable is discarded on its own and the app starts fresh for it. Saved orders that no longer exist in the database are forgotten. The live app's `xu-noodles-cart-v1` (dish slugs) is carried over to today's dishes; the old `xu-noodles-orders-v1` is removed. When changing what an item holds, bump its version in the key.
+
+The service worker (`public/sw.js`) only handles notifications: it never caches JavaScript, CSS or pages, deletes old caches when a new version activates, and is served with `no-cache`.
+
 ## Design scale
 
 One type scale is defined in `app/globals.css` and used everywhere: `text-caption` 13px (secondary), `text-body` 15px, `text-heading` 17px (sections, card titles), `text-title` 21px (page titles), `text-metric` 26px (Sales numbers); 12px only for small badges. Spacing uses Tailwind's 4px steps. Primary buttons (Accept, Reject, Place order, Start shift) are at least 44px tall on phones; other buttons and chips at least 36px. Owner screens use 2–3 column grids from 768px, a 1200px max width, and a top tab row instead of the bottom tab bar from 1024px.

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { categories, type MenuItem } from "@/data/menu";
 import { useCart } from "@/lib/cart";
 import { useMenu } from "@/lib/menu";
-import { getSavedOrders, type SavedOrder } from "@/lib/orders";
+import { forgetSavedOrder, getOrderStatus, getSavedOrders, type SavedOrder } from "@/lib/orders";
 import { orderOfferText } from "@/lib/pricing";
 import Link from "next/link";
 import MenuItemCard from "@/components/MenuItemCard";
@@ -23,10 +23,24 @@ export default function MenuPage() {
   const tabsRef = useRef<HTMLDivElement>(null);
   const [recentOrder, setRecentOrder] = useState<SavedOrder | undefined>();
 
-  // Offer a way back to the status page for an order placed in the last 12 hours.
+  // Offer a way back to the status page for an order placed in the last 12 hours,
+  // but only if that order still exists (old saved orders may point to deleted ones).
   useEffect(() => {
+    let cancelled = false;
     const last = getSavedOrders()[0];
-    if (last && Date.now() - new Date(last.placedAt).getTime() < 12 * 3600_000) setRecentOrder(last);
+    if (!last || Date.now() - new Date(last.placedAt).getTime() >= 12 * 3600_000) return;
+    getOrderStatus(last.id)
+      .then((status) => {
+        if (cancelled) return;
+        if (status) setRecentOrder(last);
+        else forgetSavedOrder(last.id);
+      })
+      .catch(() => {
+        // Offline or server trouble: just don't show the link this time.
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const sections = useMemo(() => {

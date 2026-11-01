@@ -1,3 +1,4 @@
+import { isDateText, isObject, isText, isWholeNumber, readItem, removeItem, writeItem } from "@/lib/storage";
 import { supabase } from "@/lib/supabase";
 
 export type OrderStatus = {
@@ -24,13 +25,22 @@ export type SavedOrder = {
 const STORAGE_KEY = "xu-noodles-orders-v2";
 const KEEP = 10;
 
-export function getSavedOrders(): SavedOrder[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as SavedOrder[]) : [];
-  } catch {
-    return [];
+// One saved order, or null if it isn't the expected shape.
+function checkOrder(v: unknown): SavedOrder | null {
+  if (!isObject(v) || !isText(v.id, 100) || !v.id || !isDateText(v.placedAt) || !Array.isArray(v.items)) return null;
+  const items: SavedOrder["items"] = [];
+  for (const i of v.items) {
+    if (!isObject(i) || !isText(i.name, 200) || typeof i.veg !== "boolean" || !isWholeNumber(i.qty, 1, 20) || typeof i.total !== "number" || !Number.isFinite(i.total)) return null;
+    if (i.portion !== undefined && !isText(i.portion, 20)) return null;
+    items.push({ name: i.name, veg: i.veg, portion: i.portion as string | undefined, qty: i.qty, total: i.total });
   }
+  return { id: v.id, items, placedAt: v.placedAt };
+}
+
+// Saved orders, newest first. Broken entries are dropped; a broken list is discarded.
+export function getSavedOrders(): SavedOrder[] {
+  const list = readItem(STORAGE_KEY, (v) => (Array.isArray(v) ? v.map(checkOrder).filter((o): o is SavedOrder => o !== null) : null));
+  return list ?? [];
 }
 
 export function getSavedOrder(id: string): SavedOrder | undefined {
@@ -38,12 +48,15 @@ export function getSavedOrder(id: string): SavedOrder | undefined {
 }
 
 export function saveOrder(order: SavedOrder) {
-  try {
-    const rest = getSavedOrders().filter((o) => o.id !== order.id);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify([order, ...rest].slice(0, KEEP)));
-  } catch {
-    // Ignore storage errors; the status page still works from its URL.
-  }
+  const rest = getSavedOrders().filter((o) => o.id !== order.id);
+  writeItem(STORAGE_KEY, [order, ...rest].slice(0, KEEP));
+}
+
+// The order no longer exists (e.g. test orders deleted from the database): forget it on this phone.
+export function forgetSavedOrder(id: string) {
+  const rest = getSavedOrders().filter((o) => o.id !== id);
+  if (rest.length) writeItem(STORAGE_KEY, rest);
+  else removeItem(STORAGE_KEY);
 }
 
 // The server worked out a different total from the one the customer saw (an offer started or ended).
